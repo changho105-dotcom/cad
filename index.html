@@ -1266,12 +1266,24 @@ async function send(textArg, retry = 0, opts = {}) {
   };
   try {
     // 대벌 서버(cad_api.php?action=ai)가 회사 키로 Anthropic에 대신 요청 — 기다리는 동안 서버가 공백을 보내 연결 유지
-    const data = await srvCall('ai', { body });
-    if (data.type === 'error' || data.status !== 200) {
-      const code = data.proxy_status || data.status;
-      throw new Error(`AI 오류 (${code}): ${data.error && data.error.message || '응답을 받지 못했습니다'}`);
+    const ask = async () => {
+      const d = await srvCall('ai', { body });
+      if (d.type === 'error' || d.status !== 200) {
+        const code = d.proxy_status || d.status;
+        throw new Error(`AI 오류 (${code}): ${d.error && d.error.message || '응답을 받지 못했습니다'}`);
+      }
+      return d;
+    };
+    let data = await ask();
+    let tu = (data.content || []).find(b => b.type === 'tool_use');
+    const firstText = (data.content || []).filter(b => b.type === 'text');
+    if (!tu && firstText.length) {
+      // tool_choice auto라서 그릴 내용을 글로만 설명하고 끝낼 때가 있음 — 한 번 더, 말한 대로 도구로 그리게 함
+      body.messages = [...body.messages, { role:'assistant', content:firstText.map(b => ({ type:'text', text:b.text })) },
+        { role:'user', content:'방금 설명한 내용을 apply_drawing 도구로 실제로 도면에 반영해 주세요. 정말 질문이 필요한 경우에만 도구 없이 짧게 물어보세요.' }];
+      data = await ask();
+      tu = (data.content || []).find(b => b.type === 'tool_use');
     }
-    const tu = (data.content || []).find(b => b.type === 'tool_use');
     if (!tu) {
       // auto라서 도구 대신 글로만 답할 수 있음(되묻기 등) — 오류 대신 그 답을 보여줌
       const said = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
