@@ -154,6 +154,7 @@ aside#aiPanel.hide{display:none}
   <span class="tsep"></span>
   <button id="bDxf" class="ib txt" title="DXF로 내보내기">DXF</button>
   <button id="bPng" class="ib txt" title="PNG로 내보내기">PNG</button>
+  <button id="bPdfIn" class="ib txt" title="PDF 가져오기 — PDF 도면을 캐드 선으로 바꿉니다">PDF→CAD</button>
   <button id="bSheet" class="ib" data-ic="sheet" title="도곽·표제란 만들기 (축척 자동 선택)"></button>
   <button id="bViews" class="ib" data-ic="views" title="입면도 4면·단면도 2개 자동 생성"></button>
   <button id="b3d" class="ib" data-ic="cube" title="3D용 내보내기 (JSON)"></button>
@@ -266,6 +267,32 @@ aside#aiPanel.hide{display:none}
     마우스: 클릭=점 찍기/선택, 왼쪽 드래그=영역 선택(왼→오: 완전히 들어간 것, 오→왼: 걸친 것), 휠 버튼 드래그=화면 이동, 휠=확대/축소 · 터치: 한 손가락 드래그=화면 이동
   </div>
   <div class="btns"><button id="hClose" class="primary">닫기</button></div>
+</dialog>
+
+<dialog id="dlgPdf">
+  <h2>PDF 가져오기 (PDF → CAD)</h2>
+  <div class="hint">캐드에서 PDF로 출력한 도면(벡터 PDF)은 선·원·글자 좌표를 그대로 가져옵니다. 종이를 스캔하거나 사진으로 만든 PDF는 AI가 보고 따라 그립니다.</div>
+  <label for="pdfFile">PDF 파일</label>
+  <input type="file" id="pdfFile" accept="application/pdf,.pdf">
+  <div id="pdfPageRow" hidden><label for="pdfPage">쪽</label><select id="pdfPage"></select></div>
+  <canvas id="pdfThumb" hidden style="display:block;max-width:100%;max-height:34vh;margin-top:10px;border:1px solid var(--line);background:#fff"></canvas>
+  <div id="pdfInfo" class="hint" style="white-space:pre-wrap"></div>
+  <label for="pdfScale">도면 축척 (PDF에 적힌 축척)</label>
+  <select id="pdfScale">
+    <option value="1">1:1</option><option value="10">1:10</option><option value="20">1:20</option><option value="30">1:30</option>
+    <option value="50">1:50</option><option value="100" selected>1:100</option><option value="150">1:150</option><option value="200">1:200</option>
+    <option value="300">1:300</option><option value="500">1:500</option><option value="1000">1:1000</option>
+  </select>
+  <div class="hint">축척을 모르면 아무거나 고르고, 가져온 뒤 「파일 → PDF 축척 맞추기」로 길이를 아는 선을 두 점 찍어 맞추면 됩니다.</div>
+  <label><input type="checkbox" id="pdfText" checked> 글자 가져오기</label>
+  <label><input type="checkbox" id="pdfColor" checked> 색깔별로 레이어 나누기</label>
+  <label><input type="checkbox" id="pdfFill" checked> 채워진 도형(화살촉·해치 등)도 가져오기</label>
+  <div class="err" id="pdfErr"></div>
+  <div class="btns">
+    <button id="pdfCancel">닫기</button>
+    <button id="pdfAI" disabled title="쪽을 그림으로 만들어 AI에게 따라 그리게 합니다 (스캔·사진 PDF용)">AI로 따라 그리기</button>
+    <button id="pdfImport" class="primary" disabled title="PDF 안의 선·글자 좌표를 그대로 가져옵니다 (벡터 PDF용)">선 그대로 가져오기</button>
+  </div>
 </dialog>
 
 <dialog id="dlgProp">
@@ -587,6 +614,7 @@ function drawEnt(e, color, dash, width) {
 function draw() {
   const W = cv.clientWidth, H = cv.clientHeight;
   ctx.clearRect(0, 0, W, H);
+  if (doc.pdfLayers) ensurePdfLayers(); // 서버에서 불러온 도면의 PDF 레이어 색 복원
   if (gridOn) drawGrid(W, H);
   for (const e of doc.ents) { ctx.globalAlpha = (e.floor && e.floor !== doc.cur) ? 0.2 : 1; drawEnt(e); }
   ctx.globalAlpha = 1;
@@ -1592,6 +1620,215 @@ $('#propOk').onclick = () => {
   save(); draw(); $('#dlgProp').close(); status('속성을 적용했습니다');
 };
 
+/* ---------- PDF → CAD 변환 ----------
+   벡터 PDF(캐드에서 출력한 PDF)는 pdf.js(Mozilla, Apache-2.0)로 선·곡선·글자 좌표를 그대로 꺼내 캐드 요소로 바꾼다.
+   스캔·사진 PDF는 쪽을 그림으로 그려 AI(말로 그리기)에게 따라 그리게 한다. PDF 단위(pt = 1/72인치)를 축척으로 실제 mm로 바꾼다. */
+const PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+let pdfLibP = null, pdfDoc = null, pdfName = '', pdfScan = null;
+function loadPdfJs() {
+  if (!pdfLibP) pdfLibP = new Promise((res, rej) => {
+    const s = document.createElement('script'); s.src = PDFJS + 'pdf.min.js';
+    s.onload = () => { window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + 'pdf.worker.min.js'; res(window.pdfjsLib); };
+    s.onerror = () => { pdfLibP = null; rej(new Error('PDF 읽기 도구를 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.')); };
+    document.head.appendChild(s);
+  });
+  return pdfLibP;
+}
+const hex2 = v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0');
+const pdfColor = a => typeof a[0] === 'string' ? a[0].toLowerCase() : '#' + hex2(a[0]) + hex2(a[1]) + hex2(a[2]);
+// 한 쪽의 그리기 명령을 따라가며 선(경로)·글자·이미지 수를 모은다. 좌표는 PDF 사용자 좌표(pt, Y 위쪽)
+async function scanPdfPage(page) {
+  const O = (await loadPdfJs()).OPS, ol = await page.getOperatorList();
+  const paths = [], stack = [];
+  let ctm = [1, 0, 0, 1, 0, 0], stroke = '#000000', fillC = '#000000', dashed = false, images = 0, cur = [], sub = null, last = null;
+  const mul = (m, n) => [m[0] * n[0] + m[2] * n[1], m[1] * n[0] + m[3] * n[1], m[0] * n[2] + m[2] * n[3], m[1] * n[2] + m[3] * n[3], m[0] * n[4] + m[2] * n[5] + m[4], m[1] * n[4] + m[3] * n[5] + m[5]];
+  const ap = (x, y) => [ctm[0] * x + ctm[2] * y + ctm[4], ctm[1] * x + ctm[3] * y + ctm[5]];
+  const bez = (p0, p1, p2, p3) => { for (let i = 1; i <= 8; i++) { const t = i / 8, u = 1 - t; sub.pts.push([u * u * u * p0[0] + 3 * u * u * t * p1[0] + 3 * u * t * t * p2[0] + t * t * t * p3[0], u * u * u * p0[1] + 3 * u * u * t * p1[1] + 3 * u * t * t * p2[1] + t * t * t * p3[1]]); } sub.curves++; last = p3; };
+  const begin = p => { sub = { pts:[p], closed:false, curves:0, lines:0 }; cur.push(sub); last = p; };
+  const paint = (strokeIt, fillIt, close) => {
+    for (const s of cur) {
+      if (s.pts.length < 2) continue;
+      // 닫기(h) 없이 시작점으로 돌아온 경로도 닫힌 것으로 봄 (캐드 출력 PDF의 원이 흔히 이렇게 나옴)
+      const f0 = s.pts[0], l0 = s.pts[s.pts.length - 1], back = s.pts.length > 2 && Math.hypot(f0[0] - l0[0], f0[1] - l0[1]) < 1e-3;
+      const path = { pts:s.pts, closed:s.closed || back || close || (fillIt && !strokeIt), color:strokeIt ? stroke : fillC, dashed:strokeIt && dashed, fill:fillIt && !strokeIt };
+      if (path.closed && s.curves >= 4 && s.lines === 0) { // 베지어 4개 이상으로 된 닫힌 곡선이 원이면 원으로
+        const q = back || Math.hypot(f0[0] - l0[0], f0[1] - l0[1]) < 1e-3 ? s.pts.slice(0, -1) : s.pts; // 겹친 끝점은 빼고 중심 계산
+        const c = q.reduce((a, p) => [a[0] + p[0] / q.length, a[1] + p[1] / q.length], [0, 0]);
+        const ds = q.map(p => Math.hypot(p[0] - c[0], p[1] - c[1])), r = ds.reduce((a, d) => a + d, 0) / ds.length;
+        if (r > 0 && ds.every(d => Math.abs(d - r) < r * 0.02)) path.circle = [c[0], c[1], r];
+      }
+      paths.push(path);
+    }
+    cur = []; sub = null;
+  };
+  const { fnArray:F, argsArray:A } = ol;
+  for (let i = 0; i < F.length; i++) {
+    const fn = F[i], a = A[i];
+    switch (fn) {
+      case O.save: stack.push([ctm, stroke, fillC, dashed]); break;
+      case O.restore: if (stack.length) [ctm, stroke, fillC, dashed] = stack.pop(); break;
+      case O.transform: ctm = mul(ctm, a); break;
+      case O.setStrokeRGBColor: stroke = pdfColor(a); break;
+      case O.setFillRGBColor: fillC = pdfColor(a); break;
+      case O.setDash: dashed = Array.isArray(a[0]) && a[0].length > 0; break;
+      case O.paintImageXObject: case O.paintInlineImageXObject: case O.paintImageMaskXObject: case O.paintJpegXObject: images++; break;
+      case O.constructPath: {
+        const [ops, c] = a; let j = 0;
+        for (const op of ops) {
+          if (op === O.rectangle) { const [x, y, w, h] = c.slice(j, j + 4); j += 4; begin(ap(x, y)); sub.pts.push(ap(x + w, y), ap(x + w, y + h), ap(x, y + h)); sub.closed = true; sub.lines = 4; }
+          else if (op === O.moveTo) { begin(ap(c[j], c[j + 1])); j += 2; }
+          else if (op === O.lineTo) { if (!sub) begin(ap(c[j], c[j + 1])); else { const p = ap(c[j], c[j + 1]); sub.pts.push(p); sub.lines++; last = p; } j += 2; }
+          else if (op === O.curveTo) { if (sub) bez(last, ap(c[j], c[j + 1]), ap(c[j + 2], c[j + 3]), ap(c[j + 4], c[j + 5])); j += 6; }
+          else if (op === O.curveTo2) { if (sub) { const p2 = ap(c[j], c[j + 1]), p3 = ap(c[j + 2], c[j + 3]); bez(last, last, p2, p3); } j += 4; }
+          else if (op === O.curveTo3) { if (sub) { const p1 = ap(c[j], c[j + 1]), p3 = ap(c[j + 2], c[j + 3]); bez(last, p1, p3, p3); } j += 4; }
+          else if (op === O.closePath) { if (sub) { sub.closed = true; last = sub.pts[0]; } }
+        }
+        break;
+      }
+      case O.stroke: paint(true, false, false); break;
+      case O.closeStroke: paint(true, false, true); break;
+      case O.fill: case O.eoFill: paint(false, true, true); break;
+      case O.fillStroke: case O.eoFillStroke: paint(true, true, false); break;
+      case O.closeFillStroke: case O.closeEOFillStroke: paint(true, true, true); break;
+      case O.endPath: cur = []; sub = null; break; // 잘라내기(clip) 경로 등 — 그리지 않음
+    }
+  }
+  const texts = [];
+  for (const it of (await page.getTextContent()).items) {
+    if (!it.str || !it.str.trim()) continue;
+    const t = it.transform, h = Math.hypot(t[2], t[3]) || it.height;
+    texts.push({ x:t[4], y:t[5], h, rot:Math.atan2(t[1], t[0]) / D2R, str:it.str.trim() });
+  }
+  const view = page.view; // [x0, y0, x1, y1] (pt)
+  const pw = view[2] - view[0], ph = view[3] - view[1];
+  // 흰색(종이에 안 보이는 것)과 쪽 전체를 덮는 배경 사각형은 뺌
+  const kept = paths.filter(p => p.color !== '#ffffff' && !(p.fill && p.pts.length <= 5 && (() => { const xs = p.pts.map(q => q[0]), ys = p.pts.map(q => q[1]); return (Math.max(...xs) - Math.min(...xs)) > pw * 0.9 && (Math.max(...ys) - Math.min(...ys)) > ph * 0.9; })()));
+  const segs = kept.reduce((s, p) => s + p.pts.length - 1, 0);
+  return { paths:kept, texts, images, view, segs, isScan:images > 0 && segs < 50 };
+}
+// PDF 색 → 레이어 (색·점선별). 어두운 색은 검은 배경에서 보이게 밝게 표시하되 DXF에는 원래 색에 가까운 번호로
+const ACI = [[1, 255, 0, 0], [2, 255, 255, 0], [3, 0, 255, 0], [4, 0, 255, 255], [5, 0, 0, 255], [6, 255, 0, 255], [8, 128, 128, 128], [9, 192, 192, 192], [7, 0, 0, 0], [7, 255, 255, 255]];
+function registerPdfLayer(key, hex, dashed) {
+  if (LAYERS[key]) return;
+  const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+  const dark = Math.max(r, g, b) < 90; // 검정·짙은 회색만 (순수 빨강·파랑은 그대로)
+  LAYERS[key] = { color:dark ? '#e8e8e8' : hex, dash:dashed ? [10, 5] : [] };
+  const aci = ACI.reduce((best, c) => { const d = (c[1] - r) ** 2 + (c[2] - g) ** 2 + (c[3] - b) ** 2; return d < best[1] ? [c[0], d] : best; }, [7, Infinity])[0];
+  DXF_BASE[key] = ['PDF_' + hex.slice(1).toUpperCase() + (dashed ? '_D' : ''), aci, dashed ? 'HIDDEN' : 'CONTINUOUS'];
+  const o = document.createElement('option'); o.value = key; o.textContent = `PDF ${hex}${dashed ? ' 점선' : ''}`; $('#layerSel').appendChild(o);
+}
+function ensurePdfLayers() { for (const [k, v] of Object.entries(doc.pdfLayers || {})) registerPdfLayer(k, v.hex, v.dashed); }
+function pdfLayerOf(hex, dashed, byColor) {
+  if (!byColor) return dashed ? 'hidden' : '0';
+  const key = 'pdf_' + hex.slice(1) + (dashed ? '_d' : '');
+  if (!doc.pdfLayers) doc.pdfLayers = {};
+  doc.pdfLayers[key] = { hex, dashed }; registerPdfLayer(key, hex, dashed);
+  return key;
+}
+function pdfToEnts(scan, opt) {
+  const k = 25.4 / 72 * opt.scale, [vx0, vy0] = scan.view, grp = 'pdf' + Date.now().toString(36);
+  const T = p => [(p[0] - vx0) * k, (p[1] - vy0) * k], ents = [];
+  for (const p of scan.paths) {
+    if (p.fill && !opt.fills) continue;
+    const layer = pdfLayerOf(p.color, p.dashed, opt.byColor);
+    if (p.circle) { const c = T(p.circle); ents.push({ type:'circle', layer, cx:c[0], cy:c[1], r:p.circle[2] * k, tag:grp }); continue; }
+    const pts = [];
+    for (const q of p.pts.map(T)) { const l = pts[pts.length - 1]; if (!l || Math.hypot(q[0] - l[0], q[1] - l[1]) > 1e-6) pts.push(q); }
+    if (p.closed && pts.length > 2) { const f = pts[0], l = pts[pts.length - 1]; if (Math.hypot(f[0] - l[0], f[1] - l[1]) < 1e-6) pts.pop(); }
+    if (pts.length < 2) continue;
+    if (pts.length === 2 && !p.closed) ents.push({ type:'line', layer, x1:pts[0][0], y1:pts[0][1], x2:pts[1][0], y2:pts[1][1], tag:grp });
+    else ents.push({ type:'polyline', layer, pts, closed:!!p.closed && pts.length > 2, tag:grp });
+  }
+  if (opt.text) for (const t of scan.texts) { const q = T([t.x, t.y]); ents.push({ type:'text', layer:'ann', x:q[0], y:q[1], h:t.h * k, rot:t.rot, text:t.str, tag:grp }); }
+  return { ents, grp };
+}
+const PAPER = [['A0', 841, 1189], ['A1', 594, 841], ['A2', 420, 594], ['A3', 297, 420], ['A4', 210, 297]];
+function paperName(wmm, hmm) {
+  const s = Math.min(wmm, hmm), l = Math.max(wmm, hmm), p = PAPER.find(([, a, b]) => Math.abs(a - s) < 4 && Math.abs(b - l) < 4);
+  return `${p ? p[0] + (wmm > hmm ? ' 가로' : ' 세로') : '종이'} ${Math.round(wmm)}×${Math.round(hmm)}mm`;
+}
+async function analyzePdfPage(n) {
+  const info_ = $('#pdfInfo'); info_.textContent = `${n}쪽을 분석하는 중…`; $('#pdfImport').disabled = true; $('#pdfAI').disabled = true;
+  try {
+    const page = await pdfDoc.getPage(n);
+    const vp = page.getViewport({ scale:Math.min(480 / page.getViewport({ scale:1 }).width, 3) }), th = $('#pdfThumb');
+    th.width = vp.width; th.height = vp.height; th.hidden = false;
+    await page.render({ canvasContext:th.getContext('2d'), viewport:vp }).promise;
+    pdfScan = await scanPdfPage(page); pdfScan.page = page; pdfScan.pageNo = n;
+    const s = pdfScan, v = s.view, mm = pt => pt * 25.4 / 72;
+    info_.textContent = `${paperName(mm(v[2] - v[0]), mm(v[3] - v[1]))} · 선 ${s.paths.length.toLocaleString()}개(조각 ${s.segs.toLocaleString()}) · 원 ${s.paths.filter(p => p.circle).length} · 글자 ${s.texts.length} · 그림 ${s.images}` +
+      (s.isScan ? '\n→ 스캔·사진 PDF로 보입니다. 「AI로 따라 그리기」를 쓰세요. (선 정보가 거의 없습니다)'
+               : '\n→ 벡터 PDF입니다. 「선 그대로 가져오기」로 원본 좌표 그대로 가져옵니다.') +
+      (!s.isScan && !s.texts.length ? '\n  글자가 따로 없습니다 — 글자가 선으로 쪼개져 출력된 PDF일 수 있습니다(그림처럼 보이기만 하고 문자 편집은 안 됨).' : '');
+    $('#pdfImport').disabled = !(s.paths.length || s.texts.length);
+    $('#pdfAI').disabled = false;
+    $('#pdfImport').classList.toggle('primary', !s.isScan); $('#pdfAI').classList.toggle('primary', s.isScan);
+  } catch (err) { info_.textContent = ''; $('#pdfErr').textContent = 'PDF를 읽지 못했습니다: ' + err.message; }
+}
+function openPdfImport() { $('#pdfErr').textContent = ''; $('#dlgPdf').showModal(); }
+$('#pdfCancel').onclick = () => $('#dlgPdf').close();
+$('#pdfFile').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  $('#pdfErr').textContent = ''; $('#pdfInfo').textContent = 'PDF를 여는 중…';
+  try {
+    const lib = await loadPdfJs();
+    pdfDoc = await lib.getDocument({ data:new Uint8Array(await f.arrayBuffer()) }).promise; pdfName = f.name;
+    const ps = $('#pdfPage'); ps.innerHTML = '';
+    for (let i = 1; i <= pdfDoc.numPages; i++) { const o = document.createElement('option'); o.value = i; o.textContent = `${i}쪽`; ps.appendChild(o); }
+    $('#pdfPageRow').hidden = pdfDoc.numPages < 2;
+    await analyzePdfPage(1);
+  } catch (err) { $('#pdfInfo').textContent = ''; $('#pdfErr').textContent = err.name === 'PasswordException' ? '암호가 걸린 PDF는 열 수 없습니다.' : 'PDF를 열지 못했습니다: ' + err.message; }
+};
+$('#pdfPage').onchange = () => analyzePdfPage(+$('#pdfPage').value);
+$('#pdfImport').onclick = () => {
+  if (!pdfScan) return;
+  const opt = { scale:+$('#pdfScale').value, text:$('#pdfText').checked, byColor:$('#pdfColor').checked, fills:$('#pdfFill').checked };
+  const { ents, grp } = pdfToEnts(pdfScan, opt);
+  if (!ents.length) { $('#pdfErr').textContent = '가져올 선이나 글자가 없습니다.'; return; }
+  if (ents.length > 40000 && !confirm(`요소가 ${ents.length.toLocaleString()}개로 많아 화면이 느려질 수 있습니다. 그래도 가져올까요?\n(해치가 많으면 「채워진 도형」을 끄면 줄어듭니다)`)) return;
+  const b = bounds(doc.ents.filter(visible)), nb = bounds(ents);
+  if (b && nb) { const dx = b[2] + (b[2] - b[0]) * 0.1 - nb[0], dy = b[1] - nb[1]; ents.forEach(e => moveEnt(e, dx, dy)); } // 기존 도면 오른쪽에 둠
+  snapshot(); ents.forEach(addEnt); doc.lastPdfGrp = grp; save();
+  $('#dlgPdf').close(); zoomExtents();
+  info(`PDF 가져옴: ${pdfName} ${pdfScan.pageNo}쪽 · 요소 ${ents.length.toLocaleString()}개 · 축척 1:${opt.scale}\n치수가 안 맞으면 「파일 → PDF 축척 맞추기」로 길이를 아는 선의 두 끝을 찍고 실제 길이를 넣으세요.`);
+};
+$('#pdfAI').onclick = async () => {
+  if (!pdfScan) return;
+  try {
+    const page = pdfScan.page, w1 = page.getViewport({ scale:1 }), vp = page.getViewport({ scale:Math.min(2400 / Math.max(w1.width, w1.height), 4) });
+    const c = document.createElement('canvas'); c.width = vp.width; c.height = vp.height;
+    const cx = c.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, c.width, c.height);
+    await page.render({ canvasContext:cx, viewport:vp }).promise;
+    attachment = { name:`${pdfName} ${pdfScan.pageNo}쪽`, kind:'image', mime:'image/jpeg', data:c.toDataURL('image/jpeg', 0.85).split(',')[1] };
+    $('#attachName').textContent = '📎 ' + attachment.name;
+    $('#dlgPdf').close(); setAI(true);
+    send(`첨부한 도면(축척 1:${$('#pdfScale').value})을 따라 그려줘. 적힌 치수를 우선 쓰고, 적혀 있지 않은 치수는 비율로 추정해서 추정값을 알려줘.`);
+  } catch (err) { $('#pdfErr').textContent = '그림으로 만들지 못했습니다: ' + err.message; }
+};
+CMDS.PDFSCALE = () => ({
+  start(c) {
+    if (!doc.ents.some(e => String(e.tag || '').startsWith('pdf'))) { endCmd(); status('가져온 PDF 도면이 없습니다'); return; }
+    c.prompt = 'PDF 축척 맞추기 — 길이를 아는 선의 첫 점:';
+  },
+  point(c, p, raw) {
+    if (c.pts.length >= 2) return;
+    if (!c.pts.length) { const e = pick(raw); c.grp = e && String(e.tag || '').startsWith('pdf') ? e.tag : doc.lastPdfGrp; }
+    c.pts.push(p);
+    c.prompt = c.pts.length === 1 ? '두번째 점:' : `실제 길이 입력 (지금 ${fmt(Math.hypot(c.pts[1][0] - c.pts[0][0], c.pts[1][1] - c.pts[0][1]))}):`;
+  },
+  text(c, t) {
+    if (c.pts.length !== 2 || !NUMBER.test(t) || !(+t > 0)) return;
+    const d = Math.hypot(c.pts[1][0] - c.pts[0][0], c.pts[1][1] - c.pts[0][1]); if (!d) return;
+    const k = +t / d, f = sclF(c.pts[0], k); let n = 0;
+    snapshot();
+    for (const e of doc.ents) if (e.tag === c.grp) { xformEnt(e, f, { k }); n++; }
+    save(); endCmd(); zoomExtents(); info(`PDF 도면 ${n}개 요소를 ${fmt(k)}배 했습니다 (${fmt(d)} → ${t})`); return true;
+  },
+  preview(c, cur) { return c.pts.length === 1 ? [{ ...lineE(c.pts[0], cur), ghost:true }] : []; }
+});
+CMD_DESC.PDFSCALE = 'PDF 축척 맞추기 (두 점 + 실제 길이)';
+ensurePdfLayers();
+
 /* ---------- 풀다운 메뉴 (실제 캐드처럼) ---------- */
 const MENUS = [
   ['파일', [
@@ -1599,6 +1836,9 @@ const MENUS = [
     ['서버 도면 열기…', '', () => srvOpenList()],
     ['서버 저장', 'Ctrl+S', () => srvSave(false)],
     ['새 이름으로 서버 저장…', '', () => srvSave(true)],
+    '-',
+    ['PDF 가져오기 (PDF → CAD)…', '', () => openPdfImport()],
+    { cmd:'PDFSCALE', label:'PDF 축척 맞추기 (두 점)' },
     '-',
     ['DXF로 내보내기', '', () => exportDXF()],
     ['PNG로 내보내기', '', () => $('#bPng').click()],
@@ -1728,6 +1968,7 @@ $('#aiClose').onclick = () => setAI(false);
 $('#bZin').onclick = () => zoomCenter(1.5);
 $('#bZout').onclick = () => zoomCenter(1 / 1.5);
 $('#bProps').onclick = () => startCmd('PROPERTIES');
+$('#bPdfIn').onclick = () => openPdfImport();
 document.addEventListener('keydown', e => { if (e.key === 'F7' && !document.querySelector('dialog[open]')) { e.preventDefault(); setGrid(!gridOn); } });
 MENUS[2][1].splice(6, 0, { label:'그리드', key:'F7', chk:() => gridOn, run:() => setGrid(!gridOn) });
 MENUS[2][1].push({ label:'AI 도우미 창', key:'', chk:() => !$('#aiPanel').classList.contains('hide'), run:() => setAI($('#aiPanel').classList.contains('hide')) });
