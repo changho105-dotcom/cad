@@ -74,53 +74,111 @@ table.help td:first-child{font-family:Consolas,monospace;color:var(--accent);whi
 #lawbox .warn{color:#ff8a8a}
 #lawbox .note{color:var(--muted);font-size:12px;margin-top:6px}
 #lawbox button{margin-top:6px;padding:3px 8px;font-size:12px}
+#menubar{display:flex;flex-wrap:wrap;background:#181b20;border-bottom:1px solid var(--line);padding:0 6px;font-size:13px;user-select:none;position:relative;z-index:20}
+.mb-top{position:relative}
+.mb-top>button{background:none;border:0;border-radius:4px;padding:5px 10px;font-size:13px}
+.mb-top>button:hover,.mb-top.open>button{background:#2a3038}
+.mb-drop{position:absolute;top:100%;left:0;min-width:240px;background:#22272e;border:1px solid #39414b;border-radius:6px;padding:4px 0;box-shadow:0 8px 24px #0009;display:none}
+.mb-top.open .mb-drop{display:block}
+.mb-item{display:flex;width:100%;align-items:center;gap:8px;background:none;border:0;border-radius:0;padding:6px 14px 6px 8px;font-size:13px;text-align:left;white-space:nowrap}
+.mb-item:hover,.mb-item:focus-visible{background:var(--accent2);outline:none}
+.mb-item .c{width:14px;color:var(--accent)}
+.mb-item .l{flex:1}
+.mb-item .k{color:var(--muted);font-family:Consolas,monospace;font-size:12px;margin-left:24px}
+.mb-item:hover .k{color:#dfe9f5}
+.mb-sep{height:1px;background:#39414b;margin:4px 0}
+#propForm{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;align-items:center;margin-top:10px;max-height:50vh;overflow:auto}
+#propForm label{margin:0}
+#propForm input,#propForm select{width:100%;background:#0f1215;border:1px solid var(--line);color:var(--text);padding:5px 7px;border-radius:5px;font:inherit}
+#propInfo{white-space:pre-wrap;font-size:12.5px;color:var(--muted);margin-top:6px}
+/* CAD식 화면 배치: 제목줄 · 메뉴 · 도구막대 · [그리기 | 도면 | 수정 | AI] · 명령창 · 상태막대 */
+#titlebar{display:flex;align-items:center;gap:10px;height:26px;padding:0 10px;background:#101317;font-size:12.5px;color:var(--muted);border-bottom:1px solid var(--line);white-space:nowrap;overflow:hidden}
+#titlebar .app{color:var(--text);font-weight:700}
+#toolbar{display:flex;align-items:center;gap:2px;padding:3px 6px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+.ib{width:30px;height:30px;padding:0;display:inline-flex;align-items:center;justify-content:center;background:none;border:1px solid transparent;border-radius:4px;color:#cfd6de;flex:none}
+.ib:hover{background:#2a3038;border-color:#39414b}
+.ib.on{background:#264a6e;border-color:var(--accent)}
+.ib svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.ib.txt{width:auto;padding:0 7px;font-size:12px}
+.tsep{width:1px;height:22px;background:#39414b;margin:0 4px;flex:none}
+#toolbar .tlabel{color:var(--muted);font-size:12px;margin:0 2px 0 4px}
+#toolbar select{height:28px;padding:2px 6px;font-size:12.5px}
+#toolbar #floorbar{padding:0;border:0;background:none}
+main#work{flex:1;display:flex;min-height:0}
+.vtb{display:flex;flex-direction:column;gap:2px;padding:4px 3px;background:var(--panel);border-right:1px solid var(--line);overflow-y:auto;flex:none}
+.vtb .vsep{height:1px;background:#39414b;margin:3px 2px}
+#tbModify{border-right:0;border-left:1px solid var(--line)}
+#cv{cursor:none}
+#cmdwin{background:#14171b;border-top:1px solid var(--line)}
+#cmdhist{height:56px;overflow-y:auto;padding:3px 10px;font-family:Consolas,monospace;font-size:12.5px;line-height:1.45;color:#9aa5b1;white-space:pre-wrap}
+#cmdwin #cmdbar{border-top:1px solid #20252b;background:#14171b}
+#statusbar{display:flex;align-items:center;gap:4px;padding:3px 8px;background:var(--panel);border-top:1px solid var(--line);font-size:12px;flex-wrap:wrap}
+#statusbar button{padding:2px 9px;font-size:12px;border-radius:4px}
+#statusbar #coords{min-width:150px;text-align:left;margin-right:6px}
+#selInfo{color:var(--muted);margin-left:6px}
+aside#aiPanel.hide{display:none}
+.aihead{display:flex;align-items:center;gap:6px;padding:6px 10px;border-bottom:1px solid var(--line);font-weight:600;font-size:13px}
+.aihead button{margin-left:auto;padding:1px 8px}
 @media (max-width:820px){
- main{flex-direction:column}
- #stage{flex:none;height:56vh}
- aside{width:auto;border-left:none;border-top:1px solid var(--line);flex:1}
- #coords{display:none}
+ main#work{flex-direction:column;overflow:auto}
+ .vtb{flex-direction:row;overflow-x:auto;overflow-y:hidden;border:0;border-bottom:1px solid var(--line)}
+ .vtb .vsep{width:1px;height:22px;margin:4px 3px}
+ #stage{flex:none;height:50vh}
+ aside{width:auto;border-left:none;border-top:1px solid var(--line);flex:1;min-height:240px}
  #prompt{max-width:100%;flex-basis:100%}
+ #titlebar .hint2{display:none}
 }
 </style>
 </head>
 <body>
-<header>
-  <h1>🎙️ 말로 캐드</h1>
+<div id="titlebar">
+  <span class="app">말로 캐드</span>
   <span id="srvTitle" title="서버에 저장된 도면 이름"></span>
-  <button id="bNew">새 도면</button>
-  <button id="bSrvSave" class="primary" title="대벌 서버에 이 도면을 저장합니다 (대벌 시스템 계정으로 로그인)">서버 저장</button>
-  <button id="bSrvOpen" title="대벌 서버에 저장된 도면 목록을 열어 불러옵니다">서버 도면</button>
-  <button id="bUndo" title="U / Ctrl+Z">↶ 실행취소</button>
-  <button id="bRedo" title="Ctrl+Y">↷ 다시실행</button>
-  <button id="bZoom" title="Z / 휠 더블클릭">전체보기</button>
-  <button id="bDxf" class="primary">DXF 저장</button>
-  <button id="bPng">PNG 저장</button>
-  <button id="bSheet" title="그린 도면 범위에 맞는 A3 도곽·표제란(축척 자동 선택)을 만듭니다">도곽·표제란</button>
-  <button id="bViews" title="평면의 건축 요소에서 입면도 4면·단면도 2개를 자동으로 만듭니다">입면·단면 생성</button>
-  <button id="b3d" title="벽·기둥·창·층고를 3D 생성용 JSON으로 저장">3D용 내보내기</button>
   <span class="spacer"></span>
-  <button id="bHelp">명령어</button>
-  <button id="bSet">⚙ 설정</button>
-</header>
-<main>
+  <span class="hint2">단축키는 명령창에 바로 입력 · F2 음성 · F3 객체스냅 · F7 그리드 · F8 직교</span>
+</div>
+<nav id="menubar" aria-label="메뉴"></nav>
+<div id="toolbar">
+  <button id="bNew" class="ib" data-ic="new" title="새 도면"></button>
+  <button id="bSrvOpen" class="ib" data-ic="open" title="서버 도면 열기 — 대벌 서버에 저장된 도면 목록"></button>
+  <button id="bSrvSave" class="ib" data-ic="save" title="서버 저장 (Ctrl+S) — 대벌 시스템 계정으로 로그인"></button>
+  <span class="tsep"></span>
+  <button id="bUndo" class="ib" data-ic="undo" title="실행취소 (Ctrl+Z, U)"></button>
+  <button id="bRedo" class="ib" data-ic="redo" title="다시실행 (Ctrl+Y)"></button>
+  <span class="tsep"></span>
+  <button id="bZoom" class="ib" data-ic="zext" title="전체보기 (Z, 휠 더블클릭)"></button>
+  <button id="bZin" class="ib" data-ic="zin" title="확대"></button>
+  <button id="bZout" class="ib" data-ic="zout" title="축소"></button>
+  <span class="tsep"></span>
+  <button id="bProps" class="ib" data-ic="props" title="속성 (Ctrl+1)"></button>
+  <span class="tsep"></span>
+  <button id="bDxf" class="ib txt" title="DXF로 내보내기">DXF</button>
+  <button id="bPng" class="ib txt" title="PNG로 내보내기">PNG</button>
+  <button id="bSheet" class="ib" data-ic="sheet" title="도곽·표제란 만들기 (축척 자동 선택)"></button>
+  <button id="bViews" class="ib" data-ic="views" title="입면도 4면·단면도 2개 자동 생성"></button>
+  <button id="b3d" class="ib" data-ic="cube" title="3D용 내보내기 (JSON)"></button>
+  <span class="tsep"></span>
+  <span class="tlabel">레이어</span>
+  <select id="layerSel" class="tb" title="현재 레이어">
+    <option value="0">외형선</option>
+    <option value="center">중심선</option>
+    <option value="hidden">숨은선</option>
+  </select>
+  <span class="tsep"></span>
+  <div id="floorbar"></div>
+  <span class="spacer"></span>
+  <button id="bHelp" class="ib" data-ic="help" title="명령어 목록"></button>
+  <button id="bSet" class="ib" data-ic="gear" title="설정"></button>
+</div>
+<main id="work">
+  <div id="tbDraw" class="vtb" aria-label="그리기 도구"></div>
   <div id="stage">
-    <div id="floorbar"></div>
     <canvas id="cv"></canvas>
-    <div id="lawbox" hidden style="top:46px"></div>
-    <div id="cmdbar">
-      <span id="prompt">명령:</span>
-      <input id="cmd" autocomplete="off" spellcheck="false" placeholder="L, C, REC… 또는 좌표 (예: 100,50 / @30,0 / @50&lt;45)">
-      <select id="layerSel" class="tb" title="현재 레이어">
-        <option value="0">외형선</option>
-        <option value="center">중심선</option>
-        <option value="hidden">숨은선</option>
-      </select>
-      <button id="tOrtho" title="F8">직교</button>
-      <button id="tSnap" class="on" title="F3">스냅</button>
-      <span id="coords">0, 0</span>
-    </div>
+    <div id="lawbox" hidden></div>
   </div>
-  <aside>
+  <div id="tbModify" class="vtb" aria-label="수정 도구"></div>
+  <aside id="aiPanel">
+    <div class="aihead">🎙️ AI 도우미 <button id="aiClose" title="접기">—</button></div>
     <div id="log"></div>
     <div id="composer">
       <textarea id="q" placeholder="🎤 버튼(F2)을 누르고 말하거나 입력하세요"></textarea>
@@ -134,6 +192,22 @@ table.help td:first-child{font-family:Consolas,monospace;color:var(--accent);whi
     </div>
   </aside>
 </main>
+<div id="cmdwin">
+  <div id="cmdhist" aria-live="polite"></div>
+  <div id="cmdbar">
+    <span id="prompt">명령:</span>
+    <input id="cmd" autocomplete="off" spellcheck="false" placeholder="명령(L, C, REC…) 또는 좌표 (예: 100,50 / @30,0 / @50&lt;45)">
+  </div>
+</div>
+<div id="statusbar">
+  <span id="coords">0, 0</span>
+  <button id="tGrid" class="on" title="그리드 (F7)">그리드</button>
+  <button id="tOrtho" title="직교 (F8)">직교</button>
+  <button id="tSnap" class="on" title="객체 스냅 (F3)">객체스냅</button>
+  <span id="selInfo"></span>
+  <span class="spacer"></span>
+  <button id="tAI" class="on" title="AI 도우미 창 열기/접기">AI 도우미</button>
+</div>
 
 <dialog id="dlgSet">
   <h2>설정</h2>
@@ -147,7 +221,7 @@ table.help td:first-child{font-family:Consolas,monospace;color:var(--accent);whi
   <label><input id="sAuto" type="checkbox"> 말이 끝나면 자동으로 보내기</label>
   <label for="sAlias">단축키 (한 줄에 하나, 단축키=명령)</label>
   <textarea id="sAlias"></textarea>
-  <div class="hint">사용 가능한 명령: LINE, PLINE, CIRCLE, ARC, RECTANG, ERASE, MOVE, COPY, DIMLINEAR, DIMALIGNED, DIMDIAMETER, DIMRADIUS, TEXT, ZOOM, UNDO, REDO</div>
+  <div class="hint">사용 가능한 명령: LINE, PLINE, CIRCLE, ARC, RECTANG, ERASE, MOVE, COPY, ROTATE, MIRROR, SCALE, OFFSET, DIMLINEAR, DIMALIGNED, DIMDIAMETER, DIMRADIUS, DIMTXT, TEXT, DIST, AREA, LIST, ID, PROPERTIES, SELECTALL, ZOOM, UNDO, REDO</div>
   <div class="btns">
     <button id="sReset">단축키 초기화</button>
     <button id="sCancel">취소</button>
@@ -188,9 +262,20 @@ table.help td:first-child{font-family:Consolas,monospace;color:var(--accent);whi
   <div class="hint" style="margin-top:10px">
     좌표 입력: <b>100,50</b> 절대좌표 · <b>@30,0</b> 상대좌표 · <b>@50&lt;45</b> 길이&lt;각도 · 숫자만 입력하면 커서 방향으로 그 길이만큼<br>
     Enter/Space: 명령 끝내기·직전 명령 반복 · Esc: 취소 · Delete: 선택 삭제 · F3 스냅 · F8 직교 · F2 음성<br>
-    마우스: 클릭=점 찍기/선택, 드래그=화면 이동, 휠=확대/축소
+    Ctrl+A 모두 선택 · Ctrl+1 속성 · Ctrl+S 서버 저장<br>
+    마우스: 클릭=점 찍기/선택, 왼쪽 드래그=영역 선택(왼→오: 완전히 들어간 것, 오→왼: 걸친 것), 휠 버튼 드래그=화면 이동, 휠=확대/축소 · 터치: 한 손가락 드래그=화면 이동
   </div>
   <div class="btns"><button id="hClose" class="primary">닫기</button></div>
+</dialog>
+
+<dialog id="dlgProp">
+  <h2 id="propTitle">속성</h2>
+  <div id="propInfo"></div>
+  <form id="propForm" method="dialog"></form>
+  <div class="btns">
+    <button id="propCancel">닫기</button>
+    <button id="propOk" class="primary">적용</button>
+  </div>
 </dialog>
 
 <script>
@@ -202,8 +287,10 @@ const store = {
 };
 
 const DEFAULT_ALIASES = { L:'LINE', PL:'PLINE', C:'CIRCLE', A:'ARC', REC:'RECTANG', E:'ERASE', M:'MOVE', CO:'COPY', CP:'COPY',
-  DLI:'DIMLINEAR', DAL:'DIMALIGNED', DDI:'DIMDIAMETER', DRA:'DIMRADIUS', T:'TEXT', DT:'TEXT', Z:'ZOOM', U:'UNDO' };
+  DLI:'DIMLINEAR', DAL:'DIMALIGNED', DDI:'DIMDIAMETER', DRA:'DIMRADIUS', T:'TEXT', DT:'TEXT', Z:'ZOOM', U:'UNDO',
+  RO:'ROTATE', MI:'MIRROR', SC:'SCALE', O:'OFFSET', DI:'DIST', AA:'AREA', LI:'LIST', PR:'PROPERTIES', CH:'PROPERTIES' };
 const settings = Object.assign({ model:'claude-sonnet-5-5', autoSend:true, aliases:DEFAULT_ALIASES }, store.get('vc.settings', {}));
+settings.aliases = Object.assign({}, DEFAULT_ALIASES, settings.aliases); // 예전에 저장한 단축키에도 새 명령 단축키가 생기게
 if ('key' in settings) { delete settings.key; store.set('vc.settings', settings); } // 예전에 브라우저에 넣었던 API 키는 지움 (이제 서버 키 사용)
 const doc = Object.assign({ ents:[], nextId:1, dimTxt:5 }, store.get('vc.doc', {}));
 
@@ -230,7 +317,7 @@ const view = { s:2, ox:0, oy:0 };
 const sel = new Set();
 let undoStack = [], redoStack = [];
 let cmd = null, lastCmd = null;
-let cursor = [0, 0], snapHit = null;
+let cursor = [0, 0], snapHit = null, selBox = null, ptrScreen = null, ptrType = 'mouse', gridOn = true;
 let orthoOn = false, snapOn = true, curLayer = '0';
 
 const w2s = (x, y) => [x * view.s + view.ox, -y * view.s + view.oy];
@@ -500,10 +587,15 @@ function drawEnt(e, color, dash, width) {
 function draw() {
   const W = cv.clientWidth, H = cv.clientHeight;
   ctx.clearRect(0, 0, W, H);
-  drawGrid(W, H);
+  if (gridOn) drawGrid(W, H);
   for (const e of doc.ents) { ctx.globalAlpha = (e.floor && e.floor !== doc.cur) ? 0.2 : 1; drawEnt(e); }
   ctx.globalAlpha = 1;
   for (const id of sel) { const e = findEnt(id); if (e) drawEnt(e, '#4aa3ff', [6, 4], 2); }
+  if (selBox) { // 왼→오 = 완전히 포함(파랑 실선), 오→왼 = 걸침(초록 점선)
+    const [x0, y0, x1, y1] = selBox, crossing = x1 < x0;
+    ctx.globalAlpha = 0.15; ctx.fillStyle = crossing ? '#3fb950' : '#4aa3ff'; ctx.fillRect(x0, y0, x1 - x0, y1 - y0); ctx.globalAlpha = 1;
+    ctx.strokeStyle = crossing ? '#3fb950' : '#4aa3ff'; ctx.lineWidth = 1; ctx.setLineDash(crossing ? [5, 4] : []); ctx.strokeRect(x0, y0, x1 - x0, y1 - y0);
+  }
   if (cmd && cmd.def.preview) {
     const tmp = cmd.def.preview(cmd, inputPoint(cursor)) || [];
     for (const e of tmp) drawEnt(e, e.ghost ? '#6f8aa6' : '#9fc4ea', e.ghost ? [4, 4] : null, 1);
@@ -513,13 +605,45 @@ function draw() {
     ctx.setLineDash([]); ctx.strokeStyle = '#ffcc00'; ctx.lineWidth = 2; ctx.strokeRect(x - 6, y - 6, 12, 12);
     ctx.fillStyle = '#ffcc00'; ctx.font = '12px sans-serif'; ctx.textAlign = 'left'; ctx.fillText(snapHit[2], x + 10, y - 10);
   }
+  drawUcs(H);
+  drawCrosshair(W, H);
+}
+// 좌표계 표시(왼쪽 아래 X·Y 화살표)
+function drawUcs(H) {
+  const x = 22, y = H - 22, L = 34;
+  ctx.setLineDash([]); ctx.lineWidth = 1.5; ctx.font = '11px sans-serif'; ctx.textAlign = 'left';
+  for (const [dx, dy, c, t] of [[L, 0, '#e06c6c', 'X'], [0, -L, '#6cc56c', 'Y']]) {
+    ctx.strokeStyle = c; ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + dx, y + dy); ctx.stroke();
+    const ux = Math.sign(dx), uy = Math.sign(dy);
+    ctx.beginPath(); ctx.moveTo(x + dx, y + dy); ctx.lineTo(x + dx - ux * 6 - uy * 3, y + dy - uy * 6 + ux * 3); ctx.lineTo(x + dx - ux * 6 + uy * 3, y + dy - uy * 6 - ux * 3); ctx.closePath(); ctx.fill();
+    ctx.fillText(t, x + dx + (ux ? 4 : -3), y + dy + (uy ? -4 : 4));
+  }
+  ctx.strokeStyle = '#8a97a6'; ctx.strokeRect(x - 3, y - 3, 6, 6);
+}
+// 실제 캐드처럼 화면 전체를 가로지르는 십자 커서(+ 선택 상자). 터치에서는 그리지 않음
+function drawCrosshair(W, H) {
+  if (!ptrScreen || ptrType !== 'mouse') return;
+  const [x, y] = ptrScreen.map(v => Math.round(v) + .5);
+  ctx.setLineDash([]); ctx.lineWidth = 1; ctx.strokeStyle = '#e8edf2cc';
+  ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+  if (!cmd || cmd.selecting) ctx.strokeRect(x - 5, y - 5, 10, 10);
 }
 
 /* ---------- commands ---------- */
 const promptEl = $('#prompt'), cmdEl = $('#cmd');
 let statusTimer = null;
-function setPrompt() { promptEl.textContent = cmd ? cmd.prompt : (sel.size ? `명령: (${sel.size}개 선택됨)` : '명령:'); }
-function status(m) { promptEl.textContent = m; clearTimeout(statusTimer); statusTimer = setTimeout(setPrompt, 2500); }
+function setPrompt() {
+  promptEl.textContent = cmd ? cmd.prompt : '명령:';
+  const si = document.getElementById('selInfo'); if (si) si.textContent = sel.size ? `${sel.size}개 선택됨` : '';
+}
+function status(m) { promptEl.textContent = m; cmdLog(m); clearTimeout(statusTimer); statusTimer = setTimeout(setPrompt, 2500); }
+// 명령 기록창(실제 캐드의 명령 이력처럼 최근 줄을 남김)
+function cmdLog(line) {
+  const h = document.getElementById('cmdhist'); if (!h || !line) return;
+  for (const t of String(line).split('\n')) { const d = document.createElement('div'); d.textContent = t; h.appendChild(d); }
+  while (h.childNodes.length > 300) h.removeChild(h.firstChild);
+  h.scrollTop = h.scrollHeight;
+}
 function refPoint(c) { return c.ref || (c.pts.length ? c.pts[c.pts.length - 1] : null); }
 function applyOrtho(p, ref) {
   if (!orthoOn || !ref) return p;
@@ -686,6 +810,7 @@ function resolveCmd(t) {
 function startCmd(name) {
   endCmd(true);
   lastCmd = name;
+  cmdLog(`명령: ${name}`);
   cmd = { name, pts:[], prompt:'', def:CMDS[name]() };
   cmd.def.start(cmd);
   setPrompt(); draw();
@@ -729,7 +854,9 @@ cv.addEventListener('pointerdown', e => {
     const [a, b] = [...ptrs.values()];
     pinch = { d:Math.hypot(a[0] - b[0], a[1] - b[1]), s:view.s }; drag = null; return;
   }
-  drag = { x:p[0], y:p[1], ox:view.ox, oy:view.oy, moved:false, button:e.button };
+  // 마우스 왼쪽 드래그는 실제 캐드처럼 영역 선택(명령 중 점 찍기 단계 제외), 휠 버튼 드래그·터치 드래그는 화면 이동
+  const boxable = e.pointerType === 'mouse' && e.button === 0 && (!cmd || cmd.selecting);
+  drag = { x:p[0], y:p[1], ox:view.ox, oy:view.oy, moved:false, button:e.button, boxable };
   if (e.button === 1) e.preventDefault();
 });
 cv.addEventListener('pointermove', e => {
@@ -741,9 +868,13 @@ cv.addEventListener('pointermove', e => {
   }
   if (drag) {
     const dx = p[0] - drag.x, dy = p[1] - drag.y;
-    if (drag.moved || Math.hypot(dx, dy) > 5) { drag.moved = true; view.ox = drag.ox + dx; view.oy = drag.oy + dy; }
+    if (drag.moved || Math.hypot(dx, dy) > 5) {
+      drag.moved = true;
+      if (drag.boxable) selBox = [drag.x, drag.y, p[0], p[1]];
+      else { view.ox = drag.ox + dx; view.oy = drag.oy + dy; }
+    }
   }
-  cursor = s2w(...p);
+  cursor = s2w(...p); ptrScreen = p; ptrType = e.pointerType;
   snapHit = cmd && !cmd.selecting ? findSnap(cursor) : null;
   const ip = inputPoint(cursor);
   $('#coords').textContent = `${fmt(ip[0])}, ${fmt(ip[1])}`;
@@ -753,20 +884,22 @@ const endPtr = e => {
   ptrs.delete(e.pointerId);
   if (pinch) { if (ptrs.size < 2) pinch = null; drag = null; return; }
   if (drag && !drag.moved && drag.button === 0 && e.type === 'pointerup') { const p = local(e); clickAt(p[0], p[1]); }
+  if (selBox) { if (e.type === 'pointerup') boxSelect(selBox); selBox = null; draw(); }
   drag = null;
 };
 cv.addEventListener('pointerup', endPtr);
+cv.addEventListener('pointerleave', () => { ptrScreen = null; snapHit = null; draw(); });
 cv.addEventListener('pointercancel', endPtr);
 cv.addEventListener('wheel', e => { e.preventDefault(); const p = local(e); zoomAt(p[0], p[1], view.s * (e.deltaY < 0 ? 1.15 : 1 / 1.15)); draw(); }, { passive:false });
 cv.addEventListener('auxclick', e => { if (e.button === 1 && e.detail === 2) zoomExtents(); });
 cv.addEventListener('contextmenu', e => { e.preventDefault(); submitInput(''); });
 
 cmdEl.addEventListener('keydown', e => {
-  if (e.key === 'Enter' || (e.key === ' ' && !(cmd && cmd.rawText))) { e.preventDefault(); const v = cmdEl.value; cmdEl.value = ''; submitInput(v); }
+  if (e.key === 'Enter' || (e.key === ' ' && !(cmd && cmd.rawText))) { e.preventDefault(); const v = cmdEl.value; cmdEl.value = ''; if (cmd && v.trim()) cmdLog(`${promptEl.textContent} ${v.trim()}`); submitInput(v); }
   else if (e.key === 'Escape') { cmdEl.value = ''; cancel(); }
 });
 function cancel() { if (cmd) { endCmd(); status('*취소*'); } else { sel.clear(); setPrompt(); draw(); } }
-const typing = () => { const a = document.activeElement; return a && (a.tagName === 'TEXTAREA' || (a.tagName === 'INPUT' && a !== cmdEl) || a.tagName === 'SELECT' || a.closest('dialog')); };
+const typing = () => { const a = document.activeElement; return a && (a.tagName === 'TEXTAREA' || (a.tagName === 'INPUT' && a !== cmdEl) || a.tagName === 'SELECT' || a.closest('dialog') || a.closest('#menubar')); };
 document.addEventListener('keydown', e => {
   if (document.querySelector('dialog[open]')) return;
   if (e.key === 'F2') { e.preventDefault(); toggleMic(); return; }
@@ -775,6 +908,9 @@ document.addEventListener('keydown', e => {
   if (typing()) return;
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); return; }
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); return; }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') { e.preventDefault(); selectAll(); return; }
+  if ((e.ctrlKey || e.metaKey) && e.key === '1') { e.preventDefault(); startCmd('PROPERTIES'); return; }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); srvSave(false); return; }
   if (document.activeElement === cmdEl) return;
   if (e.key === 'Escape') { cancel(); return; }
   if (e.key === 'Delete') { eraseSelection(); return; }
@@ -1177,7 +1313,7 @@ $('#sSave').onclick = () => {
   }
   if (bad.length) { alert('이해하지 못한 줄:\n' + bad.join('\n')); return; }
   settings.model = $('#sModel').value; settings.autoSend = $('#sAuto').checked; settings.aliases = al;
-  store.set('vc.settings', settings); dlgSet.close(); buildHelp(); status('설정 저장됨');
+  store.set('vc.settings', settings); dlgSet.close(); buildHelp(); buildMenus(); buildToolbars(); status('설정 저장됨');
 };
 function buildHelp() {
   const rows = Object.keys(CMD_DESC).map(name => {
@@ -1188,6 +1324,416 @@ function buildHelp() {
 }
 $('#bHelp').onclick = () => $('#dlgHelp').showModal();
 $('#hClose').onclick = () => $('#dlgHelp').close();
+
+/* ---------- 수정·조회 명령: 간단한 수정은 AI 없이 손으로 (회전·대칭·축척·간격띄우기·거리·면적·정보·속성) ---------- */
+const TYPE_KO = { line:'선', polyline:'폴리선', circle:'원', arc:'호', rect:'사각형', text:'문자', dim:'치수', dimdia:'지름 치수', dimrad:'반지름 치수',
+  wall:'벽', column:'기둥', door:'문', window:'창', room:'실', bldg:'건물 외곽', slab:'슬라브', equip:'설비' };
+const m2 = mm2 => mm2 / 1e6, PY = 3.305785;
+const visible = e => !e.floor || e.floor === doc.cur;
+function info(text) { // 조회 결과는 명령 기록창과 AI 창 기록에 같이 남김
+  addMsg('sys', text); cmdLog(text);
+  promptEl.textContent = text.split('\n')[0]; clearTimeout(statusTimer); statusTimer = setTimeout(setPrompt, 4000);
+}
+function perim(pts, closed) { let s = 0; const n = closed ? pts.length : pts.length - 1; for (let i = 0; i < n; i++) { const a = pts[i], b = pts[(i + 1) % pts.length]; s += Math.hypot(b[0] - a[0], b[1] - a[1]); } return s; }
+function entInfo(e) {
+  const lv = e.floor && (doc.levels.find(l => l.id === e.floor) || {}).name;
+  const L = [`${TYPE_KO[e.type] || e.type} · 레이어 ${e.layer}${lv ? ' · ' + lv : ''}`];
+  const len = (x1, y1, x2, y2) => Math.hypot(x2 - x1, y2 - y1);
+  switch (e.type) {
+    case 'line': case 'window': case 'wall':
+      L.push(`길이 ${fmt(len(e.x1, e.y1, e.x2, e.y2))} · 각도 ${fmt(norm360(Math.atan2(e.y2 - e.y1, e.x2 - e.x1) / D2R))}°`, `시작 (${fmt(e.x1)}, ${fmt(e.y1)}) → 끝 (${fmt(e.x2)}, ${fmt(e.y2)})`);
+      if (e.type === 'wall') L.push(`두께 ${fmt(e.t || 200)}`);
+      break;
+    case 'circle': L.push(`반지름 ${fmt(e.r)} · 지름 ${fmt(e.r * 2)} · 둘레 ${fmt(2 * Math.PI * e.r)}`, `면적 ${fmt(m2(Math.PI * e.r * e.r))}㎡ · 중심 (${fmt(e.cx)}, ${fmt(e.cy)})`); break;
+    case 'arc': { const sw = norm360(e.a2 - e.a1); L.push(`반지름 ${fmt(e.r)} · ${fmt(e.a1)}°→${fmt(e.a2)}° (${fmt(sw)}°) · 호 길이 ${fmt(e.r * sw * D2R)}`); break; }
+    case 'rect': L.push(`가로 ${fmt(e.w)} × 세로 ${fmt(e.h)}`, `면적 ${fmt(m2(e.w * e.h))}㎡ (${fmt(m2(e.w * e.h) / PY)}평)`); break;
+    case 'polyline': case 'room': case 'bldg': case 'slab': {
+      const closed = e.type !== 'polyline' || e.closed;
+      L.push(`꼭짓점 ${e.pts.length}개 · ${closed ? '둘레' : '길이'} ${fmt(perim(e.pts, closed))}`);
+      if (closed) { const a = polyAreaM2(e.pts); L.push(`면적 ${fmt(a)}㎡ (${fmt(a / PY)}평)`); }
+      if (e.name) L.push(`이름 ${e.name}`);
+      break;
+    }
+    case 'text': L.push(`"${e.text}" · 높이 ${fmt(e.h)}`); break;
+    case 'dim': { const dl = dimGeom(e).lines.at(-1), v = fmt(len(...dl)); L.push(e.text ? `표기 ${e.text} (실제 ${v})` : `치수값 ${v}`); break; }
+    case 'dimdia': L.push(`지름 ${fmt(e.r * 2)}`); break;
+    case 'dimrad': L.push(`반지름 ${fmt(e.r)}`); break;
+    case 'door': L.push(`폭 ${fmt(e.w || 900)}${e.dh ? ' · 높이 ' + fmt(e.dh) : ''}`); break;
+    case 'column': L.push(e.r ? `지름 ${fmt(e.r * 2)}` : `${fmt(e.w || 200)} × ${fmt(e.d || e.w || 200)}`); break;
+    case 'equip': L.push(`${e.name ? e.name + ' · ' : ''}${fmt(e.w || 1200)} × ${fmt(e.d || 500)}${e.h ? ' × 높이 ' + fmt(e.h) : ''}`); break;
+  }
+  return L.join('\n');
+}
+
+// 점 변환 f와 각도 정보 o({rot:도} | {mirror:대칭축 각도} | {k:배율})로 요소 하나를 바꿈
+function xformEnt(e, f, o) {
+  const k = o.k || 1, mir = o.mirror != null;
+  const angMap = a => mir ? 2 * o.mirror - a : a + (o.rot || 0);
+  const P = (a, b) => { if (a in e && b in e) { const q = f([e[a], e[b]]); e[a] = q[0]; e[b] = q[1]; } };
+  if (e.type === 'dim') { // 치수선 위치를 같이 옮기고, 수평·수직이 유지되면 h/v, 아니면 정렬 치수로(원래 값 표기 유지)
+    const dl = dimGeom(e).lines.at(-1), d1 = f([dl[0], dl[1]]), d2 = f([dl[2], dl[3]]), val = Math.hypot(dl[2] - dl[0], dl[3] - dl[1]);
+    P('x1', 'y1'); P('x2', 'y2');
+    const vx = d2[0] - d1[0], vy = d2[1] - d1[1], tol = 1e-6 * Math.max(1, Math.hypot(vx, vy));
+    if (Math.abs(vy) < tol) { e.dir = 'h'; e.off = d1[1] - e.y1; }
+    else if (Math.abs(vx) < tol) { e.dir = 'v'; e.off = d1[0] - e.x1; }
+    else {
+      if (e.dir === 'h' || e.dir === 'v') { if (!e.text) e.text = fmt(val * k); }
+      const L = Math.hypot(e.x2 - e.x1, e.y2 - e.y1) || 1;
+      e.dir = 'a'; e.off = (d1[0] - e.x1) * -(e.y2 - e.y1) / L + (d1[1] - e.y1) * (e.x2 - e.x1) / L;
+    }
+    return;
+  }
+  if (e.type === 'rect') { // 90° 단위면 사각형 유지, 아니면 닫힌 폴리선으로
+    const q = rectPts(e).map(f), xs = q.map(p => p[0]), ys = q.map(p => p[1]);
+    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys), eps = 1e-6 * Math.max(1, x1 - x0, y1 - y0);
+    if (q.every(p => (Math.abs(p[0] - x0) < eps || Math.abs(p[0] - x1) < eps) && (Math.abs(p[1] - y0) < eps || Math.abs(p[1] - y1) < eps))) Object.assign(e, { x:x0, y:y0, w:x1 - x0, h:y1 - y0 });
+    else { delete e.x; delete e.y; delete e.w; delete e.h; e.type = 'polyline'; e.pts = q; e.closed = true; }
+    return;
+  }
+  if (e.pts) e.pts = e.pts.map(f);
+  P('x1', 'y1'); P('x2', 'y2'); P('cx', 'cy'); P('x', 'y');
+  if (k !== 1) {
+    for (const key of ['r', 't', 'w', 'd']) if (Number.isFinite(e[key])) e[key] *= k;
+    if (e.type === 'text' && e.h) e.h *= k;
+    if (e.type === 'wall' && !Number.isFinite(e.t)) e.t = 200 * k;
+  }
+  if (e.type === 'arc') { if (mir) { const a1 = angMap(e.a2), a2 = angMap(e.a1); e.a1 = a1; e.a2 = a2; } else { e.a1 += o.rot || 0; e.a2 += o.rot || 0; } }
+  if (e.type === 'door' || e.type === 'equip' || e.type === 'dimdia' || e.type === 'dimrad') e.ang = angMap(Number.isFinite(e.ang) ? e.ang : (isDim(e) ? 45 : 0));
+  if (e.type === 'door' && mir) e.swing = e.swing === -1 ? 1 : -1;
+  if (e.type === 'text' && !mir) e.rot = (e.rot || 0) + (o.rot || 0);
+  if (e.type === 'column' && !e.r && o.rot && Math.abs(norm360(o.rot) % 180 - 90) < 1e-6) { const w = e.w || 200; e.w = e.d || w; e.d = w; }
+}
+const rotF = (b, deg) => { const c = Math.cos(deg * D2R), s = Math.sin(deg * D2R); return p => [b[0] + (p[0] - b[0]) * c - (p[1] - b[1]) * s, b[1] + (p[0] - b[0]) * s + (p[1] - b[1]) * c]; };
+const mirF = (p1, deg) => { const c = Math.cos(2 * deg * D2R), s = Math.sin(2 * deg * D2R); return p => { const dx = p[0] - p1[0], dy = p[1] - p1[1]; return [p1[0] + dx * c + dy * s, p1[1] + dx * s - dy * c]; }; };
+const sclF = (b, k) => p => [b[0] + (p[0] - b[0]) * k, b[1] + (p[1] - b[1]) * k];
+function ghosts(f, o) { return [...sel].map(findEnt).filter(Boolean).map(e => { const n = JSON.parse(JSON.stringify(e)); xformEnt(n, f, o); n.ghost = true; return n; }); }
+function applyXform(f, o, copy) {
+  snapshot();
+  for (const id of [...sel]) { const e = findEnt(id); if (!e) continue; if (copy) { const n = JSON.parse(JSON.stringify(e)); xformEnt(n, f, o); addEnt(n); } else xformEnt(e, f, o); }
+  save();
+}
+// 간격띄우기: side = 띄울 쪽을 가리키는 점
+function offsetEnt(e, d, side) {
+  const cross = (a, b, p) => (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]);
+  const n = JSON.parse(JSON.stringify(e)); delete n.id;
+  if (e.type === 'line' || e.type === 'wall' || e.type === 'window') {
+    const L = Math.hypot(e.x2 - e.x1, e.y2 - e.y1); if (!L) return null;
+    const s = cross([e.x1, e.y1], [e.x2, e.y2], side) > 0 ? 1 : -1, nx = -(e.y2 - e.y1) / L * d * s, ny = (e.x2 - e.x1) / L * d * s;
+    n.x1 += nx; n.y1 += ny; n.x2 += nx; n.y2 += ny; return n;
+  }
+  if (e.type === 'circle' || e.type === 'arc') { n.r = Math.hypot(side[0] - e.cx, side[1] - e.cy) > e.r ? e.r + d : e.r - d; return n.r > 0 ? n : null; }
+  if (e.type === 'rect') {
+    const s = (side[0] > e.x && side[0] < e.x + e.w && side[1] > e.y && side[1] < e.y + e.h) ? -d : d;
+    n.x -= s; n.y -= s; n.w += 2 * s; n.h += 2 * s; return n.w > 0 && n.h > 0 ? n : null;
+  }
+  if (e.pts && e.pts.length >= 2) {
+    const closed = e.type !== 'polyline' || e.closed, P = e.pts, cnt = P.length, m = closed ? cnt : cnt - 1;
+    let s;
+    if (closed) { // 반시계 다각형이면 왼쪽 법선이 안쪽
+      let a = 0; for (let i = 0; i < cnt; i++) { const p = P[i], q = P[(i + 1) % cnt]; a += p[0] * q[1] - q[0] * p[1]; }
+      s = (a > 0) === inPoly(side, P) ? 1 : -1;
+    } else {
+      let best = Infinity, bi = 0;
+      for (let i = 0; i < m; i++) { const dd = segDist(side, P[i][0], P[i][1], P[i + 1][0], P[i + 1][1]); if (dd < best) { best = dd; bi = i; } }
+      s = cross(P[bi], P[bi + 1], side) > 0 ? 1 : -1;
+    }
+    const segs = [];
+    for (let i = 0; i < m; i++) { const a = P[i], b = P[(i + 1) % cnt], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, nx = -(b[1] - a[1]) / L * d * s, ny = (b[0] - a[0]) / L * d * s; segs.push([[a[0] + nx, a[1] + ny], [b[0] + nx, b[1] + ny]]); }
+    n.pts = P.map((_, i) => {
+      if (!closed && i === 0) return segs[0][0];
+      if (!closed && i === cnt - 1) return segs[m - 1][1];
+      const s1 = segs[(i - 1 + m) % m], s2 = segs[i % m];
+      return lineX(s1[0], s1[1], s2[0], s2[1]) || s2[0];
+    });
+    return n;
+  }
+  return null;
+}
+function boxSelect([sx0, sy0, sx1, sy1]) {
+  const crossing = sx1 < sx0, a = s2w(Math.min(sx0, sx1), Math.max(sy0, sy1)), b = s2w(Math.max(sx0, sx1), Math.min(sy0, sy1));
+  for (const e of doc.ents) {
+    if (!visible(e)) continue;
+    const bb = bounds([e]); if (!bb) continue;
+    const hit = crossing ? (bb[0] <= b[0] && bb[2] >= a[0] && bb[1] <= b[1] && bb[3] >= a[1])
+                         : (bb[0] >= a[0] && bb[2] <= b[0] && bb[1] >= a[1] && bb[3] <= b[1]);
+    if (hit) sel.add(e.id);
+  }
+  setPrompt();
+}
+function selectAll() { for (const e of doc.ents) if (visible(e)) sel.add(e.id); setPrompt(); draw(); }
+function zoomCenter(f) { zoomAt(cv.clientWidth / 2, cv.clientHeight / 2, view.s * f); draw(); }
+
+let offsetDist = 100;
+const NUMBER = /^-?\d*\.?\d+$/;
+Object.assign(CMDS, {
+  ROTATE: () => ({ start(c) { selectStep(c, cc => {
+    const angTo = (k, q) => Math.atan2(q[1] - k.base[1], q[0] - k.base[0]) / D2R;
+    const finish = (k, deg) => { applyXform(rotF(k.base, deg), { rot:deg }); endCmd(); status(`${sel.size}개를 ${fmt(deg)}° 회전`); };
+    cc.prompt = '기준점 지정:'; cc.def.enter = () => endCmd();
+    cc.def.point = (k, p) => { if (!k.base) { k.base = p; k.ref = p; k.prompt = '회전 각도 (숫자 입력 또는 클릭, 반시계 +):'; return; } finish(k, angTo(k, p)); };
+    cc.def.text = (k, t) => { if (k.base && NUMBER.test(t)) { finish(k, +t); return true; } };
+    cc.def.preview = (k, cur) => { if (!k.base) return []; const a = angTo(k, cur); return [...ghosts(rotF(k.base, a), { rot:a }), { ...lineE(k.base, cur), ghost:true }]; };
+  }, '회전'); } }),
+  MIRROR: () => ({ start(c) { selectStep(c, cc => {
+    const angOf = (k, q) => Math.atan2(q[1] - k.m1[1], q[0] - k.m1[0]) / D2R;
+    const done = (k, del) => { const a = angOf(k, k.m2); applyXform(mirF(k.m1, a), { mirror:a }, !del); endCmd(); status(del ? '대칭 이동했습니다' : '대칭 복사했습니다'); };
+    cc.prompt = '대칭선 첫 점:'; cc.def.enter = () => endCmd();
+    cc.def.point = (k, p) => {
+      if (!k.m1) { k.m1 = p; k.ref = p; k.prompt = '대칭선 두번째 점:'; return; }
+      if (!k.m2 && Math.hypot(p[0] - k.m1[0], p[1] - k.m1[1]) > 1e-9) { k.m2 = p; k.prompt = '원본을 지울까요? (Y=지움 / N 또는 Enter=남김):'; k.def.enter = kk => done(kk, false); }
+    };
+    cc.def.text = (k, t) => { if (k.m2 && /^[yn]$/i.test(t)) { done(k, /^y$/i.test(t)); return true; } };
+    cc.def.preview = (k, cur) => { if (!k.m1) return []; const q = k.m2 || cur; if (Math.hypot(q[0] - k.m1[0], q[1] - k.m1[1]) < 1e-9) return []; const a = angOf(k, q); return [...ghosts(mirF(k.m1, a), { mirror:a }), { ...lineE(k.m1, q), ghost:true }]; };
+  }, '대칭'); } }),
+  SCALE: () => ({ start(c) { selectStep(c, cc => {
+    cc.prompt = '기준점 지정:'; cc.def.enter = () => endCmd();
+    cc.def.point = (k, p) => { if (!k.base) { k.base = p; k.ref = p; k.prompt = '배율 입력 (예: 2, 0.5):'; } };
+    cc.def.text = (k, t) => { if (k.base && NUMBER.test(t) && +t > 0) { applyXform(sclF(k.base, +t), { k:+t }); endCmd(); status(`${sel.size}개를 ${t}배로`); return true; } };
+  }, '축척'); } }),
+  OFFSET: () => ({
+    pickPrompt: '간격띄울 객체 클릭 (Enter=종료):',
+    start(c) { c.prompt = `간격 거리 입력 (Enter=${fmt(offsetDist)}):`; c.stage = 'dist'; },
+    enter(c) { if (c.stage === 'dist') { c.stage = 'pick'; c.prompt = this.pickPrompt; } else endCmd(); },
+    text(c, t) { if (c.stage === 'dist' && NUMBER.test(t) && +t > 0) { offsetDist = +t; c.stage = 'pick'; c.prompt = this.pickPrompt; return true; } },
+    point(c, p, raw) {
+      if (c.stage === 'dist') return;
+      if (c.stage === 'pick') { const e = pick(raw); if (!e) return status('객체를 클릭하세요'); c.src = e; c.stage = 'side'; c.prompt = '어느 쪽으로 띄울까요? 그쪽을 클릭:'; return; }
+      const n = offsetEnt(c.src, offsetDist, raw);
+      if (n) commit(n); else status('이 객체는 간격띄우기를 할 수 없거나 너무 작아집니다');
+      c.stage = 'pick'; c.src = null; c.prompt = this.pickPrompt;
+    },
+    preview(c, cur) { if (c.stage !== 'side') return []; const n = offsetEnt(c.src, offsetDist, cur); return n ? [{ ...n, ghost:true }] : []; }
+  }),
+  DIST: () => ({
+    start(c) { c.prompt = '거리 재기 — 첫 점:'; },
+    point(c, p) {
+      if (!c.pts.length) { c.pts.push(p); c.prompt = '두번째 점:'; return; }
+      const a = c.pts[0], dx = p[0] - a[0], dy = p[1] - a[1];
+      endCmd(); info(`거리 ${fmt(Math.hypot(dx, dy))} · 각도 ${fmt(norm360(Math.atan2(dy, dx) / D2R))}°\nΔX ${fmt(dx)} · ΔY ${fmt(dy)}`);
+    },
+    preview(c, cur) { return c.pts.length ? [{ ...lineE(c.pts[0], cur), ghost:true }] : []; }
+  }),
+  ID: () => ({ start(c) { c.prompt = '좌표를 볼 점:'; }, point(c, p) { endCmd(); info(`X ${fmt(p[0])} · Y ${fmt(p[1])}`); } }),
+  AREA: () => ({
+    start(c) { c.prompt = '면적 재기 — 꼭짓점을 차례로 클릭 (O=객체 선택, Enter=계산):'; },
+    text(c, t) { if (/^o$/i.test(t) && !c.pts.length) { c.obj = true; c.prompt = '면적을 볼 객체 클릭:'; return true; } },
+    shape(e) { // 면적을 낼 수 있는 도형이면 꼭짓점(원은 'circle'), 아니면 null
+      if (e.type === 'circle') return 'circle';
+      if (e.type === 'rect') return rectPts(e);
+      if (e.pts && (e.type !== 'polyline' || e.closed)) return e.pts;
+      if (e.type === 'wall') return wallQuad(e);
+      if (e.type === 'column' && !e.r) return columnPts(e);
+      if (e.type === 'equip') return equipPts(e);
+      return null;
+    },
+    point(c, p, raw) {
+      if (!c.obj) { c.pts.push(p); return; }
+      // 벽과 실 경계처럼 겹친 곳에서는 실·건물외곽·닫힌 폴리선을 벽보다 먼저 고름
+      const tol = 8 / view.s, rank = e => (e.type === 'room' || e.type === 'bldg' || e.type === 'slab' || e.type === 'polyline' || e.type === 'rect' || e.type === 'circle') ? 0 : 1;
+      const e = doc.ents.filter(x => visible(x) && this.shape(x) && hitDist(x, raw) < tol).sort((x, y) => rank(x) - rank(y) || hitDist(x, raw) - hitDist(y, raw))[0];
+      if (!e) return status('닫힌 도형(사각형·닫힌 폴리선·실·원 등)을 클릭하세요');
+      const pts = this.shape(e);
+      const a = pts === 'circle' ? m2(Math.PI * e.r * e.r) : polyAreaM2(pts), per = pts === 'circle' ? 2 * Math.PI * e.r : perim(pts, true);
+      endCmd(); info(`면적 ${fmt(a)}㎡ (${fmt(a / PY)}평) · 둘레 ${fmt(per)}\n${TYPE_KO[e.type] || e.type}${e.name ? ' ' + e.name : ''}`);
+    },
+    enter(c) {
+      if (c.pts.length < 3) { endCmd(); return status('점이 3개 이상 필요합니다'); }
+      const a = polyAreaM2(c.pts), per = perim(c.pts, true); endCmd(); info(`면적 ${fmt(a)}㎡ (${fmt(a / PY)}평) · 둘레 ${fmt(per)}`);
+    },
+    preview(c, cur) { return c.pts.length ? [{ type:'polyline', layer:'dim', pts:[...c.pts, cur], closed:true, ghost:true }] : []; }
+  }),
+  LIST: () => ({ start(c) { selectStep(c, () => {
+    const es = [...sel].map(findEnt).filter(Boolean); endCmd();
+    info(es.slice(0, 20).map(entInfo).join('\n— — —\n') + (es.length > 20 ? `\n…외 ${es.length - 20}개` : ''));
+  }, '정보를 볼'); } }),
+  PROPERTIES: () => ({ start(c) { selectStep(c, () => { const e = findEnt([...sel][0]); endCmd(); if (e) openProps(e, sel.size); }, '속성을 볼'); } }),
+  SELECTALL: () => ({ start() { endCmd(); selectAll(); } }),
+  DIMTXT: () => ({
+    start(c) { c.prompt = `치수·문자 높이 (현재 ${fmt(doc.dimTxt)}):`; },
+    text(c, t) { if (NUMBER.test(t) && +t > 0) { doc.dimTxt = +t; save(); endCmd(); status(`치수 글자 높이 ${t}`); return true; } }
+  })
+});
+Object.assign(CMD_DESC, { ROTATE:'회전 (각도 입력/클릭)', MIRROR:'대칭 (Y=원본 지움)', SCALE:'축척 (배율 입력)', OFFSET:'간격띄우기 (거리→객체→방향)',
+  DIST:'거리 재기', AREA:'면적 재기 (O=객체)', LIST:'객체 정보', ID:'좌표 보기', PROPERTIES:'속성 — 값 직접 고치기 (Ctrl+1)', SELECTALL:'모두 선택 (Ctrl+A)', DIMTXT:'치수 글자 높이' });
+
+// 속성 창: 선택한 요소의 숫자·문자를 직접 고침
+const PROP_KO = { x1:'시작 X', y1:'시작 Y', x2:'끝 X', y2:'끝 Y', cx:'중심 X', cy:'중심 Y', r:'반지름', a1:'시작 각도(°)', a2:'끝 각도(°)', x:'X', y:'Y', w:'폭', h:'높이',
+  rot:'회전(°)', off:'치수선 간격', ang:'각도(°)', t:'두께', d:'깊이', sill:'창대 높이', wh:'창 높이', dh:'문 높이', top:'상단 높이' };
+let propEnt = null;
+function openProps(e, count) {
+  propEnt = e;
+  $('#propTitle').textContent = `속성 — ${TYPE_KO[e.type] || e.type}` + (count > 1 ? ` (선택 ${count}개 중 첫 번째)` : '');
+  $('#propInfo').textContent = entInfo(e);
+  const f = $('#propForm'); f.innerHTML = '';
+  const row = (key, label, el) => { const l = document.createElement('label'); l.textContent = label; l.htmlFor = 'pf_' + key; el.id = 'pf_' + key; el.dataset.key = key; f.append(l, el); };
+  const num = v => { const i = document.createElement('input'); i.type = 'number'; i.step = 'any'; i.value = Math.round(v * 1000) / 1000; return i; };
+  const ls = document.createElement('select');
+  for (const k of Object.keys(LAYERS)) { const o = document.createElement('option'); o.value = k; o.textContent = k; ls.appendChild(o); }
+  ls.value = e.layer; row('layer', '레이어', ls);
+  if (['line', 'wall', 'window'].includes(e.type)) row('_len', '길이 (시작점 고정)', num(Math.hypot(e.x2 - e.x1, e.y2 - e.y1)));
+  for (const k of NUM_KEYS) if (Number.isFinite(e[k])) row(k, PROP_KO[k] || k, num(e[k]));
+  for (const k of ['text', 'name']) if (typeof e[k] === 'string') { const i = document.createElement('input'); i.type = 'text'; i.value = e[k]; row(k, k === 'text' ? '내용' : '이름', i); }
+  $('#dlgProp').showModal();
+}
+$('#propCancel').onclick = () => $('#dlgProp').close();
+$('#propForm').onsubmit = ev => { ev.preventDefault(); $('#propOk').click(); };
+$('#propOk').onclick = () => {
+  const e = propEnt && findEnt(propEnt.id); if (!e) { $('#dlgProp').close(); return; }
+  snapshot();
+  let newLen = null;
+  for (const el of $('#propForm').querySelectorAll('[data-key]')) {
+    const k = el.dataset.key;
+    if (k === 'layer') { if (LAYERS[el.value]) e.layer = el.value; }
+    else if (k === 'text' || k === 'name') e[k] = el.value;
+    else if (k === '_len') { const v = parseFloat(el.value); if (v > 0 && Math.abs(v - Math.hypot(e.x2 - e.x1, e.y2 - e.y1)) > 1e-6) newLen = v; }
+    else { const v = parseFloat(el.value); if (Number.isFinite(v)) e[k] = v; }
+  }
+  if (newLen) { const L = Math.hypot(e.x2 - e.x1, e.y2 - e.y1) || 1; e.x2 = e.x1 + (e.x2 - e.x1) / L * newLen; e.y2 = e.y1 + (e.y2 - e.y1) / L * newLen; }
+  save(); draw(); $('#dlgProp').close(); status('속성을 적용했습니다');
+};
+
+/* ---------- 풀다운 메뉴 (실제 캐드처럼) ---------- */
+const MENUS = [
+  ['파일', [
+    ['새 도면', '', () => $('#bNew').click()],
+    ['서버 도면 열기…', '', () => srvOpenList()],
+    ['서버 저장', 'Ctrl+S', () => srvSave(false)],
+    ['새 이름으로 서버 저장…', '', () => srvSave(true)],
+    '-',
+    ['DXF로 내보내기', '', () => exportDXF()],
+    ['PNG로 내보내기', '', () => $('#bPng').click()],
+    ['3D용 내보내기', '', () => export3D()],
+    '-',
+    ['도곽·표제란 만들기', '', () => genSheet()]
+  ]],
+  ['편집', [
+    ['실행취소', 'Ctrl+Z', undo], ['다시실행', 'Ctrl+Y', redo], '-',
+    ['모두 선택', 'Ctrl+A', selectAll], ['선택 해제', 'Esc', () => { sel.clear(); setPrompt(); draw(); }],
+    { cmd:'ERASE', label:'지우기', key:'Del' }
+  ]],
+  ['보기', [
+    ['전체보기', 'Z', zoomExtents], ['확대', '휠↑', () => zoomCenter(1.5)], ['축소', '휠↓', () => zoomCenter(1 / 1.5)], '-',
+    { label:'객체 스냅', key:'F3', chk:() => snapOn, run:() => setSnap(!snapOn) },
+    { label:'직교', key:'F8', chk:() => orthoOn, run:() => setOrtho(!orthoOn) }, '-',
+    ['입면·단면 생성', '', () => genViews()]
+  ]],
+  ['그리기', [{ cmd:'LINE', label:'선' }, { cmd:'PLINE', label:'폴리선' }, { cmd:'RECTANG', label:'사각형' }, { cmd:'CIRCLE', label:'원' }, { cmd:'ARC', label:'호 (3점)' }, '-', { cmd:'TEXT', label:'문자' }]],
+  ['치수', [{ cmd:'DIMLINEAR', label:'수평/수직 치수' }, { cmd:'DIMALIGNED', label:'정렬 치수' }, { cmd:'DIMDIAMETER', label:'지름 치수' }, { cmd:'DIMRADIUS', label:'반지름 치수' }, '-', { cmd:'DIMTXT', label:'치수 글자 높이…' }]],
+  ['수정', [{ cmd:'PROPERTIES', label:'속성 (값 직접 고치기)…', key:'Ctrl+1' }, '-', { cmd:'ERASE', label:'지우기' }, { cmd:'MOVE', label:'이동' }, { cmd:'COPY', label:'복사' },
+    { cmd:'ROTATE', label:'회전' }, { cmd:'MIRROR', label:'대칭' }, { cmd:'SCALE', label:'축척' }, { cmd:'OFFSET', label:'간격띄우기' }]],
+  ['조회', [{ cmd:'DIST', label:'거리 재기' }, { cmd:'AREA', label:'면적 재기' }, { cmd:'LIST', label:'객체 정보' }, { cmd:'ID', label:'좌표 보기' }]],
+  ['도움말', [['명령어 목록', '', () => $('#dlgHelp').showModal()], ['설정…', '', () => openSettings()]]]
+];
+const menubar = $('#menubar');
+function closeMenus() { menubar.querySelectorAll('.mb-top.open').forEach(m => m.classList.remove('open')); }
+function refreshChecks(top) { top.querySelectorAll('.mb-item').forEach(b => { if (b._chk) b.querySelector('.c').textContent = b._chk() ? '✓' : ''; }); }
+function openMenu(top) {
+  closeMenus(); top.classList.add('open'); refreshChecks(top);
+  const drop = top.querySelector('.mb-drop'); drop.style.left = '';
+  const r = drop.getBoundingClientRect(), over = r.right - (window.innerWidth - 4); // 화면 오른쪽 밖으로 나가면 안쪽으로 당김
+  if (over > 0) drop.style.left = Math.max(-top.getBoundingClientRect().left + 4, drop.offsetLeft - over) + 'px';
+}
+function buildMenus() {
+  menubar.innerHTML = '';
+  for (const [title, items] of MENUS) {
+    const top = document.createElement('div'); top.className = 'mb-top';
+    const btn = document.createElement('button'); btn.type = 'button'; btn.textContent = title; btn.setAttribute('aria-haspopup', 'menu');
+    const drop = document.createElement('div'); drop.className = 'mb-drop'; drop.setAttribute('role', 'menu');
+    for (const it of items) {
+      if (it === '-') { const s = document.createElement('div'); s.className = 'mb-sep'; drop.appendChild(s); continue; }
+      const o = Array.isArray(it) ? { label:it[0], key:it[1], run:it[2] } : it;
+      const alias = o.cmd ? Object.keys(settings.aliases).find(k => settings.aliases[k] === o.cmd) : '';
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'mb-item'; b.setAttribute('role', 'menuitem');
+      b.innerHTML = '<span class="c"></span><span class="l"></span><span class="k"></span>';
+      b.querySelector('.l').textContent = o.label;
+      b.querySelector('.k').textContent = o.key || alias || '';
+      if (o.chk) b._chk = o.chk;
+      b.onclick = () => { closeMenus(); b.blur(); if (o.cmd) startCmd(o.cmd); else o.run(); };
+      drop.appendChild(b);
+    }
+    btn.onclick = () => { if (top.classList.contains('open')) closeMenus(); else openMenu(top); };
+    btn.onmouseenter = () => { if (menubar.querySelector('.mb-top.open') && !top.classList.contains('open')) openMenu(top); };
+    top.append(btn, drop); menubar.appendChild(top);
+  }
+}
+document.addEventListener('pointerdown', e => { if (!menubar.contains(e.target)) closeMenus(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenus(); });
+
+/* ---------- 도구막대 (위: 표준 · 왼쪽: 그리기·치수 · 오른쪽: 수정·조회) ---------- */
+// 아이콘은 단순 도형으로 직접 그린 SVG (24×24)
+const ICONS = {
+  new:'<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/>',
+  open:'<path d="M3 7h6l2 2h10v10H3z"/><path d="M8 14h8M12 11l3 3-3 3"/>',
+  save:'<path d="M7 17a4 4 0 0 1 .5-8 5 5 0 0 1 9.6 1.5A3.3 3.3 0 0 1 17 17z"/><path d="M12 11v6M9.5 14.5 12 17l2.5-2.5"/>',
+  undo:'<path d="M9 5 4 10l5 5"/><path d="M4 10h10a5 5 0 0 1 0 10h-3"/>',
+  redo:'<path d="m15 5 5 5-5 5"/><path d="M20 10H10a5 5 0 0 0 0 10h3"/>',
+  zext:'<circle cx="10" cy="10" r="6"/><path d="m15 15 6 6M7 8V7h1M12 7h1v1M13 12v1h-1M8 13H7v-1"/>',
+  zin:'<circle cx="10" cy="10" r="6"/><path d="m15 15 6 6M7.5 10h5M10 7.5v5"/>',
+  zout:'<circle cx="10" cy="10" r="6"/><path d="m15 15 6 6M7.5 10h5"/>',
+  props:'<path d="M4 7h16M4 12h16M4 17h16"/><circle cx="9" cy="7" r="1.8"/><circle cx="15" cy="12" r="1.8"/><circle cx="8" cy="17" r="1.8"/>',
+  sheet:'<rect x="3" y="5" width="18" height="14"/><path d="M13 15h8M13 15v4"/>',
+  views:'<path d="M4 20V10l8-6 8 6v10z"/><path d="M4 20h16M10 20v-5h4v5"/>',
+  cube:'<path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"/><path d="m4 7.5 8 4.5 8-4.5M12 12v9"/>',
+  help:'<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7M12 17h.01"/>',
+  gear:'<circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/>',
+  line:'<path d="M4 20 20 4"/><circle cx="4" cy="20" r="1.5"/><circle cx="20" cy="4" r="1.5"/>',
+  pline:'<path d="M3 19 8 8l6 7 7-11"/>',
+  rect:'<rect x="4" y="6" width="16" height="12"/>',
+  circle:'<circle cx="12" cy="12" r="8"/><path d="M12 12h.01"/>',
+  arc:'<path d="M4 18a9 9 0 0 1 16 0"/><circle cx="4" cy="18" r="1.3"/><circle cx="12" cy="9.3" r="1.3"/><circle cx="20" cy="18" r="1.3"/>',
+  text:'<path d="M6 20 12 4l6 16M8.5 14h7"/>',
+  dimlin:'<path d="M4 6v12M20 6v12M4 12h16M4 12l3-2v4zM20 12l-3-2v4z"/>',
+  dimali:'<path d="M4 16 16 4M8 20 20 8M6 18l12-12"/>',
+  dimdia:'<circle cx="12" cy="12" r="8"/><path d="m6.3 17.7 11.4-11.4"/>',
+  dimrad:'<circle cx="12" cy="12" r="8"/><path d="m12 12 5.7-5.7"/>',
+  erase:'<path d="m14 4 6 6-9 9H6l-3-3z"/><path d="m9 9 6 6M13 19h8"/>',
+  move:'<path d="M12 3v18M3 12h18M12 3l-2.5 2.5M12 3l2.5 2.5M12 21l-2.5-2.5M12 21l2.5-2.5M3 12l2.5-2.5M3 12l2.5 2.5M21 12l-2.5-2.5M21 12l-2.5 2.5"/>',
+  copy:'<rect x="8" y="8" width="12" height="12"/><path d="M16 8V4H4v12h4"/>',
+  mirror:'<path d="M12 3v18" stroke-dasharray="2 2"/><path d="M9 7 3 17h6zM15 7l6 10h-6z"/>',
+  offset:'<path d="M4 16c3-6 13-6 16 0"/><path d="M4 21c3-6 13-6 16 0" transform="translate(0 -11)"/>',
+  rotate:'<path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v4h-4"/>',
+  scale:'<rect x="3" y="11" width="10" height="10"/><path d="M13 11V3h8v8h-8M16 8l5-5"/>',
+  dist:'<path d="M3 17 17 3l4 4L7 21z"/><path d="m7 13 2 2M10 10l2 2M13 7l2 2"/>',
+  area:'<path d="M4 18 7 6l9-2 4 9-6 7z" fill="currentColor" fill-opacity=".18"/>',
+  list:'<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5h.01"/>',
+  all:'<rect x="4" y="4" width="16" height="16" stroke-dasharray="3 2"/><path d="m8 12 3 3 5-6"/>'
+};
+const icon = k => `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[k] || ''}</svg>`;
+document.querySelectorAll('[data-ic]').forEach(b => { b.innerHTML = icon(b.dataset.ic); });
+const TB_DRAW = [['LINE', '선', 'line'], ['PLINE', '폴리선', 'pline'], ['RECTANG', '사각형', 'rect'], ['CIRCLE', '원', 'circle'], ['ARC', '호 (3점)', 'arc'], ['TEXT', '문자', 'text'], '-',
+  ['DIMLINEAR', '수평/수직 치수', 'dimlin'], ['DIMALIGNED', '정렬 치수', 'dimali'], ['DIMDIAMETER', '지름 치수', 'dimdia'], ['DIMRADIUS', '반지름 치수', 'dimrad']];
+const TB_MODIFY = [['ERASE', '지우기', 'erase'], ['COPY', '복사', 'copy'], ['MIRROR', '대칭', 'mirror'], ['OFFSET', '간격띄우기', 'offset'], ['MOVE', '이동', 'move'], ['ROTATE', '회전', 'rotate'], ['SCALE', '축척', 'scale'], '-',
+  ['DIST', '거리 재기', 'dist'], ['AREA', '면적 재기', 'area'], ['LIST', '객체 정보', 'list'], ['SELECTALL', '모두 선택 (Ctrl+A)', 'all']];
+function buildToolbars() {
+  for (const [id, list] of [['#tbDraw', TB_DRAW], ['#tbModify', TB_MODIFY]]) {
+    const box = $(id); box.innerHTML = '';
+    for (const it of list) {
+      if (it === '-') { const s = document.createElement('div'); s.className = 'vsep'; box.appendChild(s); continue; }
+      const [name, label, ic] = it, alias = Object.keys(settings.aliases).find(k => settings.aliases[k] === name);
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'ib'; b.innerHTML = icon(ic);
+      b.title = alias ? `${label} (${alias})` : label; b.setAttribute('aria-label', label);
+      b.onclick = () => { b.blur(); startCmd(name); };
+      box.appendChild(b);
+    }
+  }
+}
+function setGrid(v) { gridOn = v; $('#tGrid').classList.toggle('on', v); status(v ? '그리드 켜짐' : '그리드 꺼짐'); draw(); }
+function setAI(v) {
+  $('#aiPanel').classList.toggle('hide', !v); $('#tAI').classList.toggle('on', v); store.set('vc.ai', v);
+  resize();
+}
+$('#tGrid').onclick = () => setGrid(!gridOn);
+$('#tAI').onclick = () => setAI($('#aiPanel').classList.contains('hide'));
+$('#aiClose').onclick = () => setAI(false);
+$('#bZin').onclick = () => zoomCenter(1.5);
+$('#bZout').onclick = () => zoomCenter(1 / 1.5);
+$('#bProps').onclick = () => startCmd('PROPERTIES');
+document.addEventListener('keydown', e => { if (e.key === 'F7' && !document.querySelector('dialog[open]')) { e.preventDefault(); setGrid(!gridOn); } });
+MENUS[2][1].splice(6, 0, { label:'그리드', key:'F7', chk:() => gridOn, run:() => setGrid(!gridOn) });
+MENUS[2][1].push({ label:'AI 도우미 창', key:'', chk:() => !$('#aiPanel').classList.contains('hide'), run:() => setAI($('#aiPanel').classList.contains('hide')) });
+buildToolbars();
+buildMenus();
+if (store.get('vc.ai', true) === false) { $('#aiPanel').classList.add('hide'); $('#tAI').classList.remove('on'); }
 
 /* ---------- 인허가 브릿지 연동 (localStorage 'pb.handoff') ----------
    법규계산기가 저장한 대지 정보를 읽어 대지 경계(00 지적선)·방위·법규 박스·건축선 후퇴선(02 법규제선)을 그린다.
