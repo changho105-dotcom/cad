@@ -10,3 +10,6 @@ seohanam_to_schema.py
 *.dxf
 *.dwg
 __pycache__/
+
+# 옛 사본·백업 (로컬 보관용)
+backups/
