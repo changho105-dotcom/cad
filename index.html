@@ -1077,7 +1077,8 @@ async function send(textArg, retry = 0) {
   content.push({ type:'text', text:`현재 도면:\n${state}\n\n요청: ${userText}` });
   const body = {
     model: settings.model, max_tokens: 16000, system: SYS,
-    tools: [TOOL], tool_choice: { type:'tool', name:'apply_drawing' },
+    // Sonnet 5.5는 tool_choice "tool"/"any"(도구 강제)를 받지 않음(400) — auto로 두고 SYS에서 반드시 쓰라고 지시
+    tools: [TOOL], tool_choice: { type:'auto' },
     messages: [...hist.slice(-8), { role:'user', content }]
   };
   try {
@@ -1088,7 +1089,15 @@ async function send(textArg, retry = 0) {
       throw new Error(`AI 오류 (${code}): ${data.error && data.error.message || '응답을 받지 못했습니다'}`);
     }
     const tu = (data.content || []).find(b => b.type === 'tool_use');
-    if (!tu) throw new Error('도면 응답을 받지 못했습니다.');
+    if (!tu) {
+      // auto라서 도구 대신 글로만 답할 수 있음(되묻기 등) — 오류 대신 그 답을 보여줌
+      const said = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
+      if (!said) throw new Error('도면 응답을 받지 못했습니다.');
+      clearInterval(timer); pending.remove();
+      addMsg('ai', said, `${((performance.now() - t0) / 1000).toFixed(1)}초 · 도면 변경 없음`);
+      hist.push({ role:'user', content:(att ? `[첨부: ${att.name}] ` : '') + userText }, { role:'assistant', content:said });
+      return;
+    }
     if (data.stop_reason === 'max_tokens') throw new Error('도면이 너무 커서 응답이 잘렸습니다. 나눠서 요청해 주세요.');
     const r = applyAI(tu.input || {});
     const sec = ((performance.now() - t0) / 1000).toFixed(1);
