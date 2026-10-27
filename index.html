@@ -1,0 +1,1578 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>말로 캐드</title>
+<style>
+:root{--bg:#15181c;--panel:#1d2126;--line:#2c323a;--text:#e6e9ed;--muted:#8a939e;--accent:#4aa3ff;--accent2:#2f7fd1}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Malgun Gothic","Apple SD Gothic Neo",sans-serif;font-size:14px}
+body{display:flex;flex-direction:column;overflow:hidden}
+header{display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+header h1{font-size:15px;margin:0 8px 0 0;font-weight:700;white-space:nowrap}
+button,select.tb{background:#2a3038;color:var(--text);border:1px solid #39414b;border-radius:6px;padding:5px 10px;font:inherit;cursor:pointer}
+button:hover{background:#333a44}
+button.primary{background:var(--accent2);border-color:var(--accent2)}
+button.on{background:#264a6e;border-color:var(--accent)}
+button:disabled{opacity:.5;cursor:default}
+.spacer{flex:1}
+main{flex:1;display:flex;min-height:0}
+#stage{flex:1;position:relative;min-width:0;display:flex;flex-direction:column}
+#cv{flex:1;display:block;width:100%;min-height:0;cursor:crosshair;touch-action:none;background:#0f1215}
+#cmdbar{display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--panel);border-top:1px solid var(--line);flex-wrap:wrap}
+#prompt{color:var(--accent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:40%}
+#cmd{flex:1;background:#0f1215;border:1px solid var(--line);color:var(--text);padding:5px 8px;border-radius:4px;font:inherit;font-family:Consolas,monospace;min-width:80px}
+#coords{color:var(--muted);font-family:Consolas,monospace;font-size:12px;white-space:nowrap;min-width:120px;text-align:right}
+#cmdbar button,#cmdbar select{padding:3px 7px;font-size:12px}
+aside{width:350px;display:flex;flex-direction:column;background:var(--panel);border-left:1px solid var(--line);min-height:0}
+#log{flex:1;overflow:auto;padding:10px;display:flex;flex-direction:column;gap:8px}
+.msg{padding:8px 10px;border-radius:8px;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+.msg.user{background:#264a6e;align-self:flex-end;max-width:90%}
+.msg.ai{background:#262c33;max-width:95%}
+.msg.err{background:#4a2326}
+.msg.sys{color:var(--muted);font-size:12.5px;padding:2px}
+.msg .t{display:block;color:var(--muted);font-size:11.5px;margin-top:3px}
+.chips{display:flex;flex-direction:column;gap:6px}
+.chip{font-size:12.5px;padding:6px 9px;border-radius:8px;background:#222830;border:1px solid #39414b;cursor:pointer;text-align:left}
+#composer{border-top:1px solid var(--line);padding:8px;display:flex;flex-direction:column;gap:6px}
+#q{width:100%;resize:none;height:64px;background:#0f1215;border:1px solid var(--line);color:var(--text);border-radius:6px;padding:7px;font:inherit}
+#composer .row{display:flex;gap:6px;align-items:center}
+#mic{font-size:15px}
+#mic.rec{background:#a33;border-color:#d55;animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.6}}
+#attachName{font-size:12px;color:var(--muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+dialog{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:10px;width:min(560px,calc(100vw - 32px));padding:16px;max-height:calc(100vh - 32px)}
+dialog::backdrop{background:#0008}
+dialog h2{margin:0 0 6px;font-size:16px}
+dialog label{display:block;margin:12px 0 4px;color:var(--muted);font-size:13px}
+dialog input[type=password],dialog input[type=text],dialog select,dialog textarea{width:100%;background:#0f1215;border:1px solid var(--line);color:var(--text);padding:7px;border-radius:6px;font:inherit}
+dialog textarea{height:140px;font-family:Consolas,monospace;font-size:12.5px}
+dialog .btns{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+.hint{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.5}
+table.help{border-collapse:collapse;width:100%;font-size:13px}
+table.help td{border-bottom:1px solid var(--line);padding:4px 6px;vertical-align:top}
+table.help td:first-child{font-family:Consolas,monospace;color:var(--accent);white-space:nowrap}
+#floorbar{display:flex;gap:4px;align-items:center;padding:4px 8px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+#floorbar .lv{font-size:12.5px;padding:3px 11px}
+#floorbar .meta{color:var(--muted);font-size:12px;margin:0 4px}
+#lawbox{position:absolute;top:10px;right:10px;width:290px;max-height:calc(100% - 20px);overflow:auto;background:#1d2126ee;border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:12.5px;line-height:1.55;z-index:5}
+#lawbox h3{margin:0 0 6px;font-size:13px}
+#lawbox .row{display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid #262c33;padding:2px 0}
+#lawbox .row b{font-weight:600;text-align:right}
+#lawbox .warn{color:#ff8a8a}
+#lawbox .note{color:var(--muted);font-size:12px;margin-top:6px}
+#lawbox button{margin-top:6px;padding:3px 8px;font-size:12px}
+@media (max-width:820px){
+ main{flex-direction:column}
+ #stage{flex:none;height:56vh}
+ aside{width:auto;border-left:none;border-top:1px solid var(--line);flex:1}
+ #coords{display:none}
+ #prompt{max-width:100%;flex-basis:100%}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>🎙️ 말로 캐드</h1>
+  <button id="bNew">새 도면</button>
+  <button id="bUndo" title="U / Ctrl+Z">↶ 실행취소</button>
+  <button id="bRedo" title="Ctrl+Y">↷ 다시실행</button>
+  <button id="bZoom" title="Z / 휠 더블클릭">전체보기</button>
+  <button id="bDxf" class="primary">DXF 저장</button>
+  <button id="bPng">PNG 저장</button>
+  <button id="bSheet" title="그린 도면 범위에 맞는 A3 도곽·표제란(축척 자동 선택)을 만듭니다">도곽·표제란</button>
+  <button id="bViews" title="평면의 건축 요소에서 입면도 4면·단면도 2개를 자동으로 만듭니다">입면·단면 생성</button>
+  <button id="b3d" title="벽·기둥·창·층고를 3D 생성용 JSON으로 저장">3D용 내보내기</button>
+  <span class="spacer"></span>
+  <button id="bHelp">명령어</button>
+  <button id="bSet">⚙ 설정</button>
+</header>
+<main>
+  <div id="stage">
+    <div id="floorbar"></div>
+    <canvas id="cv"></canvas>
+    <div id="lawbox" hidden style="top:46px"></div>
+    <div id="cmdbar">
+      <span id="prompt">명령:</span>
+      <input id="cmd" autocomplete="off" spellcheck="false" placeholder="L, C, REC… 또는 좌표 (예: 100,50 / @30,0 / @50&lt;45)">
+      <select id="layerSel" class="tb" title="현재 레이어">
+        <option value="0">외형선</option>
+        <option value="center">중심선</option>
+        <option value="hidden">숨은선</option>
+      </select>
+      <button id="tOrtho" title="F8">직교</button>
+      <button id="tSnap" class="on" title="F3">스냅</button>
+      <span id="coords">0, 0</span>
+    </div>
+  </div>
+  <aside>
+    <div id="log"></div>
+    <div id="composer">
+      <textarea id="q" placeholder="🎤 버튼(F2)을 누르고 말하거나 입력하세요"></textarea>
+      <div class="row">
+        <button id="mic" title="음성 입력 (F2)">🎤</button>
+        <button id="bAttach" title="PDF·이미지 도면 첨부">📎</button>
+        <input type="file" id="file" accept="image/png,image/jpeg,image/webp,image/gif,application/pdf" hidden>
+        <span id="attachName"></span>
+        <button id="send" class="primary">보내기</button>
+      </div>
+    </div>
+  </aside>
+</main>
+
+<dialog id="dlgSet">
+  <h2>설정</h2>
+  <label for="sKey">Anthropic API 키</label>
+  <input id="sKey" type="password" placeholder="sk-ant-..." autocomplete="off">
+  <div class="hint">키는 이 브라우저에만 저장되고, 요청은 이 화면에서 Anthropic으로 직접 갑니다. console.anthropic.com 에서 발급받을 수 있습니다.</div>
+  <label for="sModel">모델</label>
+  <select id="sModel">
+    <option value="claude-sonnet-5-5">Sonnet 5.5 (빠름·권장)</option>
+    <option value="claude-opus-5-5">Opus 5.5 (복잡한 도면)</option>
+    <option value="claude-haiku-5-5">Haiku 5.5 (가장 빠름·저렴)</option>
+  </select>
+  <label><input id="sAuto" type="checkbox"> 말이 끝나면 자동으로 보내기</label>
+  <label for="sAlias">단축키 (한 줄에 하나, 단축키=명령)</label>
+  <textarea id="sAlias"></textarea>
+  <div class="hint">사용 가능한 명령: LINE, PLINE, CIRCLE, ARC, RECTANG, ERASE, MOVE, COPY, DIMLINEAR, DIMALIGNED, DIMDIAMETER, DIMRADIUS, TEXT, ZOOM, UNDO, REDO</div>
+  <div class="btns">
+    <button id="sReset">단축키 초기화</button>
+    <button id="sCancel">취소</button>
+    <button id="sSave" class="primary">저장</button>
+  </div>
+</dialog>
+
+<dialog id="dlgHelp">
+  <h2>명령어</h2>
+  <table class="help" id="helpTable"></table>
+  <div class="hint" style="margin-top:10px">
+    좌표 입력: <b>100,50</b> 절대좌표 · <b>@30,0</b> 상대좌표 · <b>@50&lt;45</b> 길이&lt;각도 · 숫자만 입력하면 커서 방향으로 그 길이만큼<br>
+    Enter/Space: 명령 끝내기·직전 명령 반복 · Esc: 취소 · Delete: 선택 삭제 · F3 스냅 · F8 직교 · F2 음성<br>
+    마우스: 클릭=점 찍기/선택, 드래그=화면 이동, 휠=확대/축소
+  </div>
+  <div class="btns"><button id="hClose" class="primary">닫기</button></div>
+</dialog>
+
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+};
+
+const DEFAULT_ALIASES = { L:'LINE', PL:'PLINE', C:'CIRCLE', A:'ARC', REC:'RECTANG', E:'ERASE', M:'MOVE', CO:'COPY', CP:'COPY',
+  DLI:'DIMLINEAR', DAL:'DIMALIGNED', DDI:'DIMDIAMETER', DRA:'DIMRADIUS', T:'TEXT', DT:'TEXT', Z:'ZOOM', U:'UNDO' };
+const settings = Object.assign({ key:'', model:'claude-sonnet-5-5', autoSend:true, aliases:DEFAULT_ALIASES }, store.get('vc.settings', {}));
+const doc = Object.assign({ ents:[], nextId:1, dimTxt:5 }, store.get('vc.doc', {}));
+
+const LAYERS = {
+  '0':    { color:'#e8e8e8', dash:[] },
+  center: { color:'#ff6060', dash:[16,4,3,4] },
+  hidden: { color:'#ffd24a', dash:[8,5] },
+  dim:    { color:'#5ad08a', dash:[] },
+  struct: { color:'#f0f0f0', dash:[] },   // 10 구조체(벽)
+  wall:   { color:'#cfcfcf', dash:[] },   // 13 칸막이벽
+  col:    { color:'#ffd24a', dash:[] },   // 11 기둥
+  open:   { color:'#4fc3f7', dash:[] },   // 20 창호
+  area:   { color:'#ff7a7a', dash:[] },   // 04 면적선(건물 외곽)
+  room:   { color:'#9aa7b4', dash:[] },   // 실(이름·면적)
+  slab:   { color:'#d8a0ff', dash:[] },   // 30 슬라브(캐노피·지붕 등 수평판)
+  equip:  { color:'#ffb347', dash:[] },   // 40 설비(주유기 등)
+  sheet:  { color:'#8a97a6', dash:[] },   // 70 도곽·표제란(자동 생성)
+  elev:   { color:'#e8e8e8', dash:[] },   // 60 입면선·단면선(자동 생성)
+  sec:    { color:'#ff8f6a', dash:[] }    // 단면 절단부(자동 생성)
+};
+
+const cv = $('#cv'), ctx = cv.getContext('2d');
+const view = { s:2, ox:0, oy:0 };
+const sel = new Set();
+let undoStack = [], redoStack = [];
+let cmd = null, lastCmd = null;
+let cursor = [0, 0], snapHit = null;
+let orthoOn = false, snapOn = true, curLayer = '0';
+
+const w2s = (x, y) => [x * view.s + view.ox, -y * view.s + view.oy];
+const s2w = (px, py) => [(px - view.ox) / view.s, -(py - view.oy) / view.s];
+const fmt = v => String(Math.round(v * 100) / 100);
+const D2R = Math.PI / 180;
+const norm360 = a => ((a % 360) + 360) % 360;
+
+function save() { store.set('vc.doc', doc); if (typeof renderLawBox === 'function') renderLawBox(); }
+function snapshot() { undoStack.push(JSON.stringify(doc.ents)); if (undoStack.length > 200) undoStack.shift(); redoStack = []; }
+function undo() {
+  if (!undoStack.length) return status('더 이상 되돌릴 작업이 없습니다');
+  redoStack.push(JSON.stringify(doc.ents)); doc.ents = JSON.parse(undoStack.pop()); sel.clear(); save(); draw(); status('실행취소');
+}
+function redo() {
+  if (!redoStack.length) return status('다시 실행할 작업이 없습니다');
+  undoStack.push(JSON.stringify(doc.ents)); doc.ents = JSON.parse(redoStack.pop()); sel.clear(); save(); draw(); status('다시실행');
+}
+// 층: 새 요소는 현재 층에 속함. 대지(site)·법규제선·대지 주석은 층과 무관
+if (!Array.isArray(doc.levels) || !doc.levels.length) doc.levels = [{ id:'1', name:'1층', el:0, h:3.0 }]; // 기본값은 가정(층고 3.0m) — 층 탭에서 수정
+if (!doc.levels.some(l => l.id === doc.cur)) doc.cur = doc.levels[0].id;
+function addEnt(e) {
+  e.id = 'e' + doc.nextId++; if (!LAYERS[e.layer]) e.layer = '0';
+  if (!e.floor && !['site', 'setback'].includes(e.layer) && e.tag !== 'siteNote' && e.tag !== 'sheet' && !String(e.tag || '').startsWith('view')) e.floor = doc.cur;
+  doc.ents.push(e); return e;
+}
+const findEnt = id => doc.ents.find(e => e.id === id);
+
+/* ---------- geometry ---------- */
+function segDist(p, x1, y1, x2, y2) {
+  const dx = x2 - x1, dy = y2 - y1, L2 = dx * dx + dy * dy;
+  let t = L2 ? ((p[0] - x1) * dx + (p[1] - y1) * dy) / L2 : 0; t = Math.max(0, Math.min(1, t));
+  return Math.hypot(p[0] - (x1 + t * dx), p[1] - (y1 + t * dy));
+}
+function rectPts(e) { return [[e.x, e.y], [e.x + e.w, e.y], [e.x + e.w, e.y + e.h], [e.x, e.y + e.h]]; }
+function arrow(tip, dx, dy, A) {
+  const w = A * 0.3, bx = tip[0] - dx * A, by = tip[1] - dy * A;
+  return [tip, [bx - dy * w, by + dx * w], [bx + dy * w, by - dx * w]];
+}
+function readable(ang) { // radians, keep text upright
+  while (ang > Math.PI / 2 + 1e-6) ang -= Math.PI;
+  while (ang <= -Math.PI / 2 + 1e-6) ang += Math.PI;
+  return ang;
+}
+const textW = (s, h) => s.length * h * 0.68;
+
+// Dimension -> primitive lines, arrow triangles and texts
+function dimGeom(e) {
+  const T = doc.dimTxt, A = T * 0.8, gap = T * 0.4;
+  const lines = [], tris = [], texts = [];
+  if (e.type === 'dim') {
+    const dir = e.dir || 'a', off = Number.isFinite(e.off) ? e.off : T * 3;
+    let d1, d2;
+    if (dir === 'h') { const y = e.y1 + off; d1 = [e.x1, y]; d2 = [e.x2, y]; }
+    else if (dir === 'v') { const x = e.x1 + off; d1 = [x, e.y1]; d2 = [x, e.y2]; }
+    else {
+      const L = Math.hypot(e.x2 - e.x1, e.y2 - e.y1) || 1, nx = -(e.y2 - e.y1) / L, ny = (e.x2 - e.x1) / L;
+      d1 = [e.x1 + nx * off, e.y1 + ny * off]; d2 = [e.x2 + nx * off, e.y2 + ny * off];
+    }
+    for (const [p, d] of [[[e.x1, e.y1], d1], [[e.x2, e.y2], d2]]) {
+      const vx = d[0] - p[0], vy = d[1] - p[1], L = Math.hypot(vx, vy);
+      if (L > gap) { const ux = vx / L, uy = vy / L; lines.push([p[0] + ux * gap, p[1] + uy * gap, d[0] + ux * gap * 1.5, d[1] + uy * gap * 1.5]); }
+    }
+    lines.push([d1[0], d1[1], d2[0], d2[1]]);
+    const len = Math.hypot(d2[0] - d1[0], d2[1] - d1[1]);
+    if (len > 0) { const ux = (d2[0] - d1[0]) / len, uy = (d2[1] - d1[1]) / len; tris.push(arrow(d1, -ux, -uy, A), arrow(d2, ux, uy, A)); }
+    const ang = readable(Math.atan2(d2[1] - d1[1], d2[0] - d1[0]));
+    const mx = (d1[0] + d2[0]) / 2, my = (d1[1] + d2[1]) / 2;
+    texts.push({ x: mx - Math.sin(ang) * gap, y: my + Math.cos(ang) * gap, h: T, rot: ang, text: e.text || fmt(len), center: true });
+  } else { // dimdia / dimrad
+    const a = (Number.isFinite(e.ang) ? e.ang : 45) * D2R, ux = Math.cos(a), uy = Math.sin(a);
+    const txt = e.text || (e.type === 'dimdia' ? 'Ø' + fmt(e.r * 2) : 'R' + fmt(e.r));
+    const tw = textW(txt, T);
+    const pEnd = [e.cx + ux * e.r, e.cy + uy * e.r];
+    const pStart = e.type === 'dimdia' ? [e.cx - ux * e.r, e.cy - uy * e.r] : [e.cx, e.cy];
+    const ext = [pEnd[0] + ux * (tw + gap * 2), pEnd[1] + uy * (tw + gap * 2)];
+    lines.push([pStart[0], pStart[1], ext[0], ext[1]]);
+    tris.push(arrow(pEnd, ux, uy, A));
+    if (e.type === 'dimdia') tris.push(arrow(pStart, -ux, -uy, A));
+    const ang = readable(a), mx = (pEnd[0] + ext[0]) / 2, my = (pEnd[1] + ext[1]) / 2;
+    texts.push({ x: mx - Math.sin(ang) * gap, y: my + Math.cos(ang) * gap, h: T, rot: ang, text: txt, center: true });
+  }
+  return { lines, tris, texts };
+}
+const isDim = e => e.type === 'dim' || e.type === 'dimdia' || e.type === 'dimrad';
+
+/* ---------- 건축 요소 (벽·기둥·문·창·실·건물외곽) ---------- */
+function polyAreaM2(pts) { let a = 0; for (let i = 0; i < pts.length; i++) { const p = pts[i], q = pts[(i + 1) % pts.length]; a += p[0] * q[1] - q[0] * p[1]; } return Math.abs(a) / 2 / 1e6; }
+function polyCentroid(pts) { let a = 0, cx = 0, cy = 0; for (let i = 0; i < pts.length; i++) { const p = pts[i], q = pts[(i + 1) % pts.length], k = p[0] * q[1] - q[0] * p[1]; a += k; cx += (p[0] + q[0]) * k; cy += (p[1] + q[1]) * k; }
+  if (Math.abs(a) < 1e-6) return [pts.reduce((s, p) => s + p[0], 0) / pts.length, pts.reduce((s, p) => s + p[1], 0) / pts.length]; return [cx / (3 * a), cy / (3 * a)]; }
+function wallQuad(e) { const t = e.t || 200, L = Math.hypot(e.x2 - e.x1, e.y2 - e.y1) || 1, nx = -(e.y2 - e.y1) / L * t / 2, ny = (e.x2 - e.x1) / L * t / 2;
+  return [[e.x1 + nx, e.y1 + ny], [e.x2 + nx, e.y2 + ny], [e.x2 - nx, e.y2 - ny], [e.x1 - nx, e.y1 - ny]]; }
+function columnPts(e) { const w = e.w || 200, d = e.d || w; return [[e.cx - w / 2, e.cy - d / 2], [e.cx + w / 2, e.cy - d / 2], [e.cx + w / 2, e.cy + d / 2], [e.cx - w / 2, e.cy + d / 2]]; }
+// 문: (x,y)=경첩 위치, ang=닫힌 문이 벽을 따라 놓인 방향(°), w=문 폭, swing=1이면 반시계쪽으로 열림, -1이면 시계쪽
+function doorGeom(e) { const a = (e.ang || 0) * D2R, s = e.swing === -1 ? -1 : 1, w = e.w || 900, ux = Math.cos(a), uy = Math.sin(a);
+  const arc = []; for (let i = 0; i <= 12; i++) { const th = a + s * (Math.PI / 2) * i / 12; arc.push([e.x + Math.cos(th) * w, e.y + Math.sin(th) * w]); }
+  return { closed: [e.x + ux * w, e.y + uy * w], open: [e.x - s * uy * w, e.y + s * ux * w], arc }; }
+// 설비(주유기 등): 중심 cx,cy · 크기 w×d(mm) · 방향 ang(°)
+function equipPts(e) { const w = (e.w || 1200) / 2, d = (e.d || 500) / 2, a = (e.ang || 0) * D2R, c = Math.cos(a), s = Math.sin(a);
+  return [[-w, -d], [w, -d], [w, d], [-w, d]].map(([x, y]) => [e.cx + x * c - y * s, e.cy + x * s + y * c]); }
+function windowLines(e) { const L = Math.hypot(e.x2 - e.x1, e.y2 - e.y1) || 1, out = [];
+  for (const o of [-90, 0, 90]) { const nx = -(e.y2 - e.y1) / L * o, ny = (e.x2 - e.x1) / L * o; out.push([e.x1 + nx, e.y1 + ny, e.x2 + nx, e.y2 + ny]); } return out; }
+
+function hitDist(e, p) {
+  switch (e.type) {
+    case 'line': return segDist(p, e.x1, e.y1, e.x2, e.y2);
+    case 'circle': return Math.abs(Math.hypot(p[0] - e.cx, p[1] - e.cy) - e.r);
+    case 'arc': {
+      const a = Math.atan2(p[1] - e.cy, p[0] - e.cx) / D2R;
+      if (norm360(a - e.a1) <= norm360(e.a2 - e.a1)) return Math.abs(Math.hypot(p[0] - e.cx, p[1] - e.cy) - e.r);
+      return Math.min(...[e.a1, e.a2].map(t => Math.hypot(p[0] - e.cx - e.r * Math.cos(t * D2R), p[1] - e.cy - e.r * Math.sin(t * D2R))));
+    }
+    case 'rect': { const q = rectPts(e); return Math.min(...q.map((a, i) => { const b = q[(i + 1) % 4]; return segDist(p, a[0], a[1], b[0], b[1]); })); }
+    case 'wall': return Math.max(0, segDist(p, e.x1, e.y1, e.x2, e.y2) - (e.t || 200) / 2);
+    case 'column': return Math.max(0, Math.hypot(p[0] - e.cx, p[1] - e.cy) - (e.r || Math.max(e.w || 200, e.d || 200) / 2));
+    case 'door': return Math.min(Math.hypot(p[0] - e.x, p[1] - e.y), ...doorGeom(e).arc.map(q => Math.hypot(p[0] - q[0], p[1] - q[1])));
+    case 'window': return segDist(p, e.x1, e.y1, e.x2, e.y2);
+    case 'equip': return Math.hypot(p[0] - e.cx, p[1] - e.cy) <= Math.max(e.w || 1200, e.d || 500) / 2 ? 0 : Math.hypot(p[0] - e.cx, p[1] - e.cy) - Math.max(e.w || 1200, e.d || 500) / 2;
+    case 'room': case 'bldg': case 'slab': case 'polyline': {
+      const q = e.pts; let m = Infinity; const n = (e.closed || e.type !== 'polyline') ? q.length : q.length - 1;
+      for (let i = 0; i < n; i++) { const a = q[i], b = q[(i + 1) % q.length]; m = Math.min(m, segDist(p, a[0], a[1], b[0], b[1])); }
+      return m;
+    }
+    case 'text': { const r = (e.rot || 0) * D2R, w = textW(e.text, e.h), cx = e.x + Math.cos(r) * w / 2 - Math.sin(r) * e.h / 2, cy = e.y + Math.sin(r) * w / 2 + Math.cos(r) * e.h / 2;
+      return Math.max(0, Math.hypot(p[0] - cx, p[1] - cy) - Math.max(w, e.h) / 2); }
+    default: if (isDim(e)) return Math.min(...dimGeom(e).lines.map(l => segDist(p, ...l)));
+  }
+  return Infinity;
+}
+function pick(p) {
+  const tol = 8 / view.s; let best = null, bd = tol;
+  for (const e of doc.ents) { const d = hitDist(e, p); if (d < bd) { bd = d; best = e; } }
+  return best;
+}
+function snapPts(e) {
+  switch (e.type) {
+    case 'line': return [[e.x1, e.y1, '끝점'], [e.x2, e.y2, '끝점'], [(e.x1 + e.x2) / 2, (e.y1 + e.y2) / 2, '중간점']];
+    case 'circle': return [[e.cx, e.cy, '중심'], [e.cx + e.r, e.cy, '사분점'], [e.cx - e.r, e.cy, '사분점'], [e.cx, e.cy + e.r, '사분점'], [e.cx, e.cy - e.r, '사분점']];
+    case 'arc': { const m = e.a1 + norm360(e.a2 - e.a1) / 2;
+      return [[e.cx, e.cy, '중심'], ...[e.a1, e.a2].map(a => [e.cx + e.r * Math.cos(a * D2R), e.cy + e.r * Math.sin(a * D2R), '끝점']), [e.cx + e.r * Math.cos(m * D2R), e.cy + e.r * Math.sin(m * D2R), '중간점']]; }
+    case 'rect': { const q = rectPts(e); return [...q.map(a => [a[0], a[1], '끝점']), ...q.map((a, i) => { const b = q[(i + 1) % 4]; return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, '중간점']; })]; }
+    case 'polyline': case 'bldg': case 'room': case 'slab': return e.pts.map(a => [a[0], a[1], '끝점']);
+    case 'wall': return [[e.x1, e.y1, '끝점'], [e.x2, e.y2, '끝점'], [(e.x1 + e.x2) / 2, (e.y1 + e.y2) / 2, '중간점']];
+    case 'window': return [[e.x1, e.y1, '끝점'], [e.x2, e.y2, '끝점'], [(e.x1 + e.x2) / 2, (e.y1 + e.y2) / 2, '중간점']];
+    case 'column': case 'equip': return [[e.cx, e.cy, '중심']];
+    case 'door': return [[e.x, e.y, '경첩']];
+  }
+  return [];
+}
+function findSnap(p) {
+  if (!snapOn) return null;
+  const tol = 10 / view.s; let best = null, bd = tol;
+  for (const e of doc.ents) for (const s of snapPts(e)) { const d = Math.hypot(s[0] - p[0], s[1] - p[1]); if (d < bd) { bd = d; best = s; } }
+  return best;
+}
+function moveEnt(e, dx, dy) {
+  for (const [a, b] of [['x1', 'y1'], ['x2', 'y2'], ['cx', 'cy'], ['x', 'y']]) if (a in e) { e[a] += dx; e[b] += dy; }
+  if (e.pts) e.pts = e.pts.map(q => [q[0] + dx, q[1] + dy]);
+}
+function bounds(ents) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  const add = (x, y) => { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); };
+  for (const e of ents) {
+    if (e.type === 'line') { add(e.x1, e.y1); add(e.x2, e.y2); }
+    else if (e.type === 'circle' || e.type === 'arc') { add(e.cx - e.r, e.cy - e.r); add(e.cx + e.r, e.cy + e.r); }
+    else if (e.type === 'rect') { add(e.x, e.y); add(e.x + e.w, e.y + e.h); }
+    else if (e.type === 'polyline' || e.type === 'room' || e.type === 'bldg' || e.type === 'slab') e.pts.forEach(q => add(q[0], q[1]));
+    else if (e.type === 'wall') wallQuad(e).forEach(q => add(q[0], q[1]));
+    else if (e.type === 'column') columnPts(e).forEach(q => add(q[0], q[1]));
+    else if (e.type === 'equip') equipPts(e).forEach(q => add(q[0], q[1]));
+    else if (e.type === 'window') { add(e.x1, e.y1); add(e.x2, e.y2); }
+    else if (e.type === 'door') { add(e.x, e.y); const g = doorGeom(e); g.arc.forEach(q => add(q[0], q[1])); }
+    else if (e.type === 'text') { add(e.x, e.y); add(e.x + textW(e.text, e.h), e.y + e.h); }
+    else if (isDim(e)) { const g = dimGeom(e); g.lines.forEach(l => { add(l[0], l[1]); add(l[2], l[3]); }); g.texts.forEach(t => add(t.x, t.y + t.h)); }
+  }
+  return x0 === Infinity ? null : [x0, y0, x1, y1];
+}
+function circ3(p1, p2, p3) {
+  const [ax, ay] = p1, [bx, by] = p2, [cx, cy] = p3;
+  const d = 2 * (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by)); if (Math.abs(d) < 1e-9) return null;
+  const A = ax * ax + ay * ay, B = bx * bx + by * by, C = cx * cx + cy * cy;
+  const ux = (A * (by - cy) + B * (cy - ay) + C * (ay - by)) / d, uy = (A * (cx - bx) + B * (ax - cx) + C * (bx - ax)) / d;
+  const ang = p => Math.atan2(p[1] - uy, p[0] - ux) / D2R;
+  const a1 = ang(p1), a2 = ang(p2), a3 = ang(p3), r = Math.hypot(ax - ux, ay - uy);
+  return norm360(a2 - a1) < norm360(a3 - a1) ? { type:'arc', cx:ux, cy:uy, r, a1, a2:a3 } : { type:'arc', cx:ux, cy:uy, r, a1:a3, a2:a1 };
+}
+
+/* ---------- rendering ---------- */
+function resize() {
+  const dpr = window.devicePixelRatio || 1, r = cv.getBoundingClientRect();
+  const first = !cv.width;
+  cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if (first) zoomExtents(); else draw();
+}
+function zoomExtents() {
+  const r = cv.getBoundingClientRect(), b = bounds(doc.ents);
+  if (!b) { view.s = 2; view.ox = r.width / 2; view.oy = r.height / 2; draw(); return; }
+  const w = Math.max(b[2] - b[0], 1), h = Math.max(b[3] - b[1], 1);
+  view.s = Math.min(r.width / w, r.height / h) * 0.85;
+  view.ox = r.width / 2 - (b[0] + b[2]) / 2 * view.s; view.oy = r.height / 2 + (b[1] + b[3]) / 2 * view.s;
+  draw();
+}
+function zoomAt(mx, my, ns) {
+  ns = Math.max(1e-4, Math.min(1e4, ns));
+  const [wx, wy] = s2w(mx, my); view.s = ns; view.ox = mx - wx * ns; view.oy = my + wy * ns;
+}
+function drawGrid(W, H) {
+  const target = 40 / view.s, p = Math.pow(10, Math.floor(Math.log10(target)));
+  let step = p * 10; for (const m of [1, 2, 5, 10]) if (p * m >= target) { step = p * m; break; }
+  const [x0, y1] = s2w(0, 0), [x1, y0] = s2w(W, H);
+  ctx.setLineDash([]); ctx.lineWidth = 1; ctx.strokeStyle = '#1b2127'; ctx.beginPath();
+  for (let x = Math.ceil(x0 / step) * step; x <= x1; x += step) { const sx = Math.round(w2s(x, 0)[0]) + .5; ctx.moveTo(sx, 0); ctx.lineTo(sx, H); }
+  for (let y = Math.ceil(y0 / step) * step; y <= y1; y += step) { const sy = Math.round(w2s(0, y)[1]) + .5; ctx.moveTo(0, sy); ctx.lineTo(W, sy); }
+  ctx.stroke();
+  const [ax, ay] = w2s(0, 0); ctx.strokeStyle = '#27333e'; ctx.beginPath(); ctx.moveTo(ax, 0); ctx.lineTo(ax, H); ctx.moveTo(0, ay); ctx.lineTo(W, ay); ctx.stroke();
+}
+function drawText(t, color) {
+  const px = t.h * view.s; if (px < 2.5) return;
+  const [x, y] = w2s(t.x, t.y);
+  ctx.save(); ctx.translate(x, y); ctx.rotate(-(t.rot || 0)); ctx.fillStyle = color;
+  ctx.font = `${px}px Consolas, "Malgun Gothic", sans-serif`; ctx.textAlign = t.center ? 'center' : 'left'; ctx.textBaseline = 'alphabetic';
+  ctx.fillText(t.text, 0, 0); ctx.restore();
+}
+function drawEnt(e, color, dash, width) {
+  const L = LAYERS[e.layer] || LAYERS['0'];
+  color = color || L.color;
+  ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = width || 1.3;
+  ctx.setLineDash(dash || L.dash);
+  ctx.beginPath();
+  const M = (x, y) => ctx.moveTo(...w2s(x, y)), T = (x, y) => ctx.lineTo(...w2s(x, y));
+  switch (e.type) {
+    case 'line': M(e.x1, e.y1); T(e.x2, e.y2); break;
+    case 'circle': { const [x, y] = w2s(e.cx, e.cy); ctx.moveTo(x + e.r * view.s, y); ctx.arc(x, y, e.r * view.s, 0, Math.PI * 2); break; }
+    case 'arc': { const [x, y] = w2s(e.cx, e.cy); ctx.arc(x, y, e.r * view.s, -e.a1 * D2R, -e.a2 * D2R, true); break; }
+    case 'rect': { const q = rectPts(e); M(...q[0]); q.slice(1).forEach(a => T(...a)); ctx.closePath(); break; }
+    case 'polyline': M(...e.pts[0]); e.pts.slice(1).forEach(a => T(...a)); if (e.closed) ctx.closePath(); break;
+    case 'text': drawText({ x:e.x, y:e.y, h:e.h, rot:(e.rot || 0) * D2R, text:e.text }, color); return;
+    case 'wall': { const q = wallQuad(e); M(...q[0]); q.slice(1).forEach(a => T(...a)); ctx.closePath(); ctx.save(); ctx.globalAlpha *= 0.22; ctx.fill(); ctx.restore(); break; }
+    case 'column': {
+      if (e.r > 0) { const [x, y] = w2s(e.cx, e.cy); ctx.moveTo(x + e.r * view.s, y); ctx.arc(x, y, e.r * view.s, 0, Math.PI * 2); }
+      else { const q = columnPts(e); M(...q[0]); q.slice(1).forEach(a => T(...a)); ctx.closePath(); }
+      ctx.save(); ctx.globalAlpha *= 0.55; ctx.fill(); ctx.restore(); break; }
+    case 'equip': { const q = equipPts(e); M(...q[0]); q.slice(1).forEach(a => T(...a)); ctx.closePath(); ctx.save(); ctx.globalAlpha *= 0.3; ctx.fill(); ctx.restore(); ctx.stroke();
+      ctx.beginPath(); M(e.cx - (e.w || 1200) / 2, e.cy); T(e.cx + (e.w || 1200) / 2, e.cy); // 중앙 기둥선(주유기 중심)
+      const h = Math.max(doc.dimTxt * 0.9, 1); if (e.name) drawText({ x:e.cx, y:e.cy + (e.d || 500) / 2 + h * 0.4, h, rot:0, text:e.name, center:true }, color); break; }
+    case 'door': { const g = doorGeom(e); M(e.x, e.y); T(...g.open); ctx.stroke(); ctx.beginPath(); M(...g.arc[0]); g.arc.slice(1).forEach(a => T(...a)); break; }
+    case 'window': windowLines(e).forEach(l => { M(l[0], l[1]); T(l[2], l[3]); }); break;
+    case 'room': { M(...e.pts[0]); e.pts.slice(1).forEach(a => T(...a)); ctx.closePath(); ctx.setLineDash([2, 6]); ctx.stroke();
+      const c = polyCentroid(e.pts), ar = polyAreaM2(e.pts), h = Math.max(doc.dimTxt * 1.2, 1);
+      drawText({ x:c[0], y:c[1], h, rot:0, text:`${e.name || ''} ${ar.toFixed(2)}㎡`, center:true }, color); return; }
+    case 'bldg': M(...e.pts[0]); e.pts.slice(1).forEach(a => T(...a)); ctx.closePath(); ctx.lineWidth = 2.2; break;
+    case 'slab': { M(...e.pts[0]); e.pts.slice(1).forEach(a => T(...a)); ctx.closePath(); ctx.setLineDash([10, 5]); ctx.stroke();
+      const c = polyCentroid(e.pts), h = Math.max(doc.dimTxt * 1.2, 1);
+      drawText({ x:c[0], y:c[1], h, rot:0, text:`${e.name || '슬라브'} 상단 EL+${e.top ?? '?'}m 두께 ${e.t}`, center:true }, color); return; }
+    default:
+      if (isDim(e)) {
+        const g = dimGeom(e);
+        g.lines.forEach(l => { M(l[0], l[1]); T(l[2], l[3]); }); ctx.stroke();
+        g.tris.forEach(tr => { ctx.beginPath(); M(...tr[0]); T(...tr[1]); T(...tr[2]); ctx.closePath(); ctx.fill(); });
+        g.texts.forEach(t => drawText(t, color));
+        return;
+      }
+  }
+  ctx.stroke();
+}
+function draw() {
+  const W = cv.clientWidth, H = cv.clientHeight;
+  ctx.clearRect(0, 0, W, H);
+  drawGrid(W, H);
+  for (const e of doc.ents) { ctx.globalAlpha = (e.floor && e.floor !== doc.cur) ? 0.2 : 1; drawEnt(e); }
+  ctx.globalAlpha = 1;
+  for (const id of sel) { const e = findEnt(id); if (e) drawEnt(e, '#4aa3ff', [6, 4], 2); }
+  if (cmd && cmd.def.preview) {
+    const tmp = cmd.def.preview(cmd, inputPoint(cursor)) || [];
+    for (const e of tmp) drawEnt(e, e.ghost ? '#6f8aa6' : '#9fc4ea', e.ghost ? [4, 4] : null, 1);
+  }
+  if (snapHit) {
+    const [x, y] = w2s(snapHit[0], snapHit[1]);
+    ctx.setLineDash([]); ctx.strokeStyle = '#ffcc00'; ctx.lineWidth = 2; ctx.strokeRect(x - 6, y - 6, 12, 12);
+    ctx.fillStyle = '#ffcc00'; ctx.font = '12px sans-serif'; ctx.textAlign = 'left'; ctx.fillText(snapHit[2], x + 10, y - 10);
+  }
+}
+
+/* ---------- commands ---------- */
+const promptEl = $('#prompt'), cmdEl = $('#cmd');
+let statusTimer = null;
+function setPrompt() { promptEl.textContent = cmd ? cmd.prompt : (sel.size ? `명령: (${sel.size}개 선택됨)` : '명령:'); }
+function status(m) { promptEl.textContent = m; clearTimeout(statusTimer); statusTimer = setTimeout(setPrompt, 2500); }
+function refPoint(c) { return c.ref || (c.pts.length ? c.pts[c.pts.length - 1] : null); }
+function applyOrtho(p, ref) {
+  if (!orthoOn || !ref) return p;
+  return Math.abs(p[0] - ref[0]) > Math.abs(p[1] - ref[1]) ? [p[0], ref[1]] : [ref[0], p[1]];
+}
+function inputPoint(raw) {
+  if (cmd) { const s = findSnap(raw); if (s) return [s[0], s[1]]; return applyOrtho(raw, refPoint(cmd)); }
+  return raw;
+}
+function parsePoint(t, c) {
+  const ref = refPoint(c); let m;
+  if ((m = t.match(/^(@)?\s*(-?\d*\.?\d+)\s*,\s*(-?\d*\.?\d+)$/))) {
+    const x = +m[2], y = +m[3];
+    if (m[1]) return ref ? [ref[0] + x, ref[1] + y] : [x, y];
+    return [x, y];
+  }
+  if ((m = t.match(/^@\s*(-?\d*\.?\d+)\s*<\s*(-?\d*\.?\d+)$/)) && ref) {
+    const L = +m[1], a = +m[2] * D2R; return [ref[0] + L * Math.cos(a), ref[1] + L * Math.sin(a)];
+  }
+  if ((m = t.match(/^(\d*\.?\d+)$/)) && ref) { // direct distance toward cursor
+    const tgt = applyOrtho(cursor, ref), dx = tgt[0] - ref[0], dy = tgt[1] - ref[1], L = Math.hypot(dx, dy);
+    if (L < 1e-9) return null;
+    return [ref[0] + dx / L * +m[1], ref[1] + dy / L * +m[1]];
+  }
+  return null;
+}
+const lineE = (a, b) => ({ type:'line', layer:curLayer, x1:a[0], y1:a[1], x2:b[0], y2:b[1] });
+function commit(...ents) { snapshot(); ents.forEach(addEnt); save(); }
+function linearDim(c, loc, aligned) {
+  const [p1, p2] = c.pts;
+  if (aligned) {
+    const L = Math.hypot(p2[0] - p1[0], p2[1] - p1[1]) || 1, nx = -(p2[1] - p1[1]) / L, ny = (p2[0] - p1[0]) / L;
+    return { type:'dim', layer:'dim', dir:'a', x1:p1[0], y1:p1[1], x2:p2[0], y2:p2[1], off:(loc[0] - p1[0]) * nx + (loc[1] - p1[1]) * ny };
+  }
+  const minx = Math.min(p1[0], p2[0]), maxx = Math.max(p1[0], p2[0]), miny = Math.min(p1[1], p2[1]), maxy = Math.max(p1[1], p2[1]);
+  let h;
+  if (loc[0] >= minx && loc[0] <= maxx) h = true;
+  else if (loc[1] >= miny && loc[1] <= maxy) h = false;
+  else h = (maxx - minx) >= (maxy - miny);
+  return h ? { type:'dim', layer:'dim', dir:'h', x1:p1[0], y1:p1[1], x2:p2[0], y2:p2[1], off:loc[1] - p1[1] }
+           : { type:'dim', layer:'dim', dir:'v', x1:p1[0], y1:p1[1], x2:p2[0], y2:p2[1], off:loc[0] - p1[0] };
+}
+function selectStep(c, next, verb) {
+  if (sel.size) return next(c);
+  c.selecting = true; c.prompt = `${verb}할 객체를 클릭해 선택한 뒤 Enter:`;
+  c.def.enter = cc => { if (!sel.size) return endCmd(); cc.selecting = false; next(cc); };
+}
+function moveCopy(c, copy) {
+  c.def.enter = () => endCmd();
+  c.prompt = '기준점 지정:';
+  c.def.point = (cc, p) => {
+    if (!cc.base) { cc.base = p; cc.ref = p; cc.prompt = copy ? '두번째 점 (Enter=종료):' : '두번째 점:'; return; }
+    const dx = p[0] - cc.base[0], dy = p[1] - cc.base[1]; snapshot();
+    if (copy) { for (const id of sel) { const e = findEnt(id); if (e) { const n = JSON.parse(JSON.stringify(e)); moveEnt(n, dx, dy); addEnt(n); } } save(); }
+    else { for (const id of sel) { const e = findEnt(id); if (e) moveEnt(e, dx, dy); } save(); endCmd(); }
+  };
+  c.def.preview = (cc, cur) => {
+    if (!cc.base) return [];
+    const dx = cur[0] - cc.base[0], dy = cur[1] - cc.base[1];
+    return [...sel].map(findEnt).filter(Boolean).map(e => { const n = JSON.parse(JSON.stringify(e)); moveEnt(n, dx, dy); n.ghost = true; return n; })
+      .concat([{ ...lineE(cc.base, cur), ghost:true }]);
+  };
+}
+
+const CMDS = {
+  LINE: () => ({
+    start(c) { c.prompt = '첫 점 지정:'; },
+    point(c, p) { if (c.pts.length) commit(lineE(refPoint(c), p)); c.pts.push(p); c.prompt = '다음 점 (C=닫기, Enter=종료):'; },
+    text(c, t) { if (/^c$/i.test(t) && c.pts.length > 2) { commit(lineE(refPoint(c), c.pts[0])); endCmd(); return true; } },
+    preview(c, cur) { return c.pts.length ? [lineE(refPoint(c), cur)] : []; }
+  }),
+  PLINE: () => ({
+    start(c) { c.prompt = '첫 점 지정:'; },
+    point(c, p) { c.pts.push(p); c.prompt = '다음 점 (C=닫기, Enter=종료):'; },
+    finish(c, closed) { if (c.pts.length >= 2) commit({ type:'polyline', layer:curLayer, pts:c.pts.slice(), closed }); endCmd(); },
+    enter(c) { this.finish(c, false); },
+    text(c, t) { if (/^c$/i.test(t) && c.pts.length > 2) { this.finish(c, true); return true; } },
+    preview(c, cur) { return c.pts.length ? [{ type:'polyline', layer:curLayer, pts:[...c.pts, cur] }] : []; }
+  }),
+  CIRCLE: () => ({
+    start(c) { c.prompt = '중심점 지정:'; },
+    point(c, p) {
+      if (!c.pts.length) { c.pts.push(p); c.prompt = '반지름 (D=지름으로 입력):'; return; }
+      this.make(c, Math.hypot(p[0] - c.pts[0][0], p[1] - c.pts[0][1]));
+    },
+    make(c, r) { if (r > 0) commit({ type:'circle', layer:curLayer, cx:c.pts[0][0], cy:c.pts[0][1], r }); endCmd(); },
+    text(c, t) {
+      if (!c.pts.length) return;
+      if (/^d$/i.test(t)) { c.dia = true; c.prompt = '지름:'; return true; }
+      if (/^\d*\.?\d+$/.test(t)) { this.make(c, c.dia ? +t / 2 : +t); return true; }
+    },
+    preview(c, cur) { return c.pts.length ? [{ type:'circle', layer:curLayer, cx:c.pts[0][0], cy:c.pts[0][1], r:Math.hypot(cur[0] - c.pts[0][0], cur[1] - c.pts[0][1]) }] : []; }
+  }),
+  ARC: () => ({
+    start(c) { c.prompt = '호의 시작점:'; },
+    point(c, p) {
+      c.pts.push(p);
+      if (c.pts.length === 1) c.prompt = '호의 두번째 점:';
+      else if (c.pts.length === 2) c.prompt = '호의 끝점:';
+      else { const a = circ3(...c.pts); if (a) commit({ ...a, layer:curLayer }); endCmd(); }
+    },
+    preview(c, cur) {
+      if (c.pts.length === 1) return [lineE(c.pts[0], cur)];
+      if (c.pts.length === 2) { const a = circ3(c.pts[0], c.pts[1], cur); return a ? [{ ...a, layer:curLayer }] : []; }
+      return [];
+    }
+  }),
+  RECTANG: () => ({
+    start(c) { c.prompt = '첫 모서리 지정:'; },
+    mk(a, b) { return { type:'rect', layer:curLayer, x:Math.min(a[0], b[0]), y:Math.min(a[1], b[1]), w:Math.abs(b[0] - a[0]), h:Math.abs(b[1] - a[1]) }; },
+    point(c, p) {
+      if (!c.pts.length) { c.pts.push(p); c.prompt = '반대쪽 모서리 (또는 @가로,세로):'; return; }
+      const r = this.mk(c.pts[0], p); if (r.w > 0 && r.h > 0) commit(r); endCmd();
+    },
+    preview(c, cur) { return c.pts.length ? [this.mk(c.pts[0], cur)] : []; }
+  }),
+  ERASE: () => ({
+    start(c) { selectStep(c, cc => { snapshot(); doc.ents = doc.ents.filter(e => !sel.has(e.id)); status(`${sel.size}개 지움`); sel.clear(); save(); cmd = null; draw(); }, '지울'); }
+  }),
+  MOVE: () => ({ start(c) { selectStep(c, cc => moveCopy(cc, false), '이동'); } }),
+  COPY: () => ({ start(c) { selectStep(c, cc => moveCopy(cc, true), '복사'); } }),
+  DIMLINEAR: () => ({
+    start(c) { c.prompt = '첫번째 치수 보조선 원점:'; },
+    point(c, p) {
+      if (c.pts.length < 2) { c.pts.push(p); c.prompt = c.pts.length === 1 ? '두번째 치수 보조선 원점:' : '치수선 위치 지정:'; if (c.pts.length === 2) c.ref = null; return; }
+      commit(linearDim(c, p, this.aligned)); endCmd();
+    },
+    preview(c, cur) { return c.pts.length === 2 ? [linearDim(c, cur, this.aligned)] : c.pts.length === 1 ? [{ ...lineE(c.pts[0], cur), ghost:true }] : []; }
+  }),
+  DIMALIGNED: () => Object.assign(CMDS.DIMLINEAR(), { aligned:true }),
+  DIMDIAMETER: () => ({
+    start(c) { c.prompt = '원 또는 호 선택:'; },
+    point(c, p, raw) {
+      if (!c.ent) {
+        const e = pick(raw);
+        if (!e || (e.type !== 'circle' && e.type !== 'arc')) return status('원이나 호를 클릭하세요');
+        c.ent = e; c.prompt = '치수선 위치 지정:'; return;
+      }
+      commit(this.mk(c, p)); endCmd();
+    },
+    mk(c, p) { const e = c.ent; return { type:this.kind, layer:'dim', cx:e.cx, cy:e.cy, r:e.r, ang:Math.atan2(p[1] - e.cy, p[0] - e.cx) / D2R }; },
+    kind: 'dimdia',
+    preview(c, cur) { return c.ent ? [this.mk(c, cur)] : []; }
+  }),
+  DIMRADIUS: () => Object.assign(CMDS.DIMDIAMETER(), { kind:'dimrad' }),
+  TEXT: () => ({
+    start(c) { c.prompt = '문자 시작점:'; },
+    point(c, p) { if (c.pts.length) return; c.pts.push(p); c.rawText = true; c.prompt = '문자 입력 후 Enter:'; },
+    text(c, t) { if (!c.pts.length) return; commit({ type:'text', layer:curLayer, x:c.pts[0][0], y:c.pts[0][1], h:doc.dimTxt, text:t }); endCmd(); return true; }
+  }),
+  ZOOM: () => ({ start() { endCmd(); zoomExtents(); } }),
+  UNDO: () => ({ start() { endCmd(); undo(); } }),
+  REDO: () => ({ start() { endCmd(); redo(); } })
+};
+const CMD_DESC = { LINE:'선', PLINE:'폴리선', CIRCLE:'원 (중심→반지름, D=지름)', ARC:'호 (3점)', RECTANG:'사각형 (@가로,세로 가능)', ERASE:'지우기', MOVE:'이동', COPY:'복사',
+  DIMLINEAR:'수평/수직 치수', DIMALIGNED:'정렬 치수', DIMDIAMETER:'지름 치수', DIMRADIUS:'반지름 치수', TEXT:'문자', ZOOM:'전체보기', UNDO:'실행취소', REDO:'다시실행' };
+
+function resolveCmd(t) {
+  const u = t.toUpperCase();
+  const a = settings.aliases[u];
+  if (a && CMDS[a]) return a;
+  return CMDS[u] ? u : null;
+}
+function startCmd(name) {
+  endCmd(true);
+  lastCmd = name;
+  cmd = { name, pts:[], prompt:'', def:CMDS[name]() };
+  cmd.def.start(cmd);
+  setPrompt(); draw();
+}
+function endCmd(silent) { cmd = null; snapHit = null; if (!silent) { setPrompt(); draw(); } }
+function submitInput(raw) {
+  const t = raw.trim();
+  if (!cmd) {
+    if (!t) { if (lastCmd) startCmd(lastCmd); return; }
+    const name = resolveCmd(t);
+    if (name) startCmd(name); else status(`알 수 없는 명령: ${t}`);
+    return;
+  }
+  if (!t) { if (cmd.def.enter) cmd.def.enter(cmd); else endCmd(); setPrompt(); draw(); return; }
+  if (cmd.def.text && cmd.def.text(cmd, t)) { draw(); return; }
+  const p = parsePoint(t, cmd);
+  if (p && cmd.def.point && !cmd.selecting) { cmd.def.point(cmd, p, p); setPrompt(); draw(); return; }
+  status('입력을 이해하지 못했습니다: ' + t);
+}
+function clickAt(sx, sy) {
+  const raw = s2w(sx, sy);
+  if (pickRoadMode && pickRoadEdge(raw)) { draw(); return; }
+  if (cmd && !cmd.selecting && cmd.def.point) { cmd.def.point(cmd, inputPoint(raw), raw); setPrompt(); draw(); return; }
+  const e = pick(raw);
+  if (e) { sel.has(e.id) ? sel.delete(e.id) : sel.add(e.id); }
+  else if (!cmd) sel.clear();
+  setPrompt(); draw();
+}
+function eraseSelection() {
+  if (!sel.size) return;
+  snapshot(); doc.ents = doc.ents.filter(e => !sel.has(e.id)); status(`${sel.size}개 지움`); sel.clear(); save(); draw();
+}
+
+/* ---------- input events ---------- */
+const ptrs = new Map(); let drag = null, pinch = null;
+const local = e => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+cv.addEventListener('pointerdown', e => {
+  cv.setPointerCapture(e.pointerId);
+  const p = local(e); ptrs.set(e.pointerId, p);
+  if (ptrs.size === 2) {
+    const [a, b] = [...ptrs.values()];
+    pinch = { d:Math.hypot(a[0] - b[0], a[1] - b[1]), s:view.s }; drag = null; return;
+  }
+  drag = { x:p[0], y:p[1], ox:view.ox, oy:view.oy, moved:false, button:e.button };
+  if (e.button === 1) e.preventDefault();
+});
+cv.addEventListener('pointermove', e => {
+  const p = local(e);
+  if (ptrs.has(e.pointerId)) ptrs.set(e.pointerId, p);
+  if (pinch && ptrs.size === 2) {
+    const [a, b] = [...ptrs.values()];
+    zoomAt((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, pinch.s * Math.hypot(a[0] - b[0], a[1] - b[1]) / pinch.d); draw(); return;
+  }
+  if (drag) {
+    const dx = p[0] - drag.x, dy = p[1] - drag.y;
+    if (drag.moved || Math.hypot(dx, dy) > 5) { drag.moved = true; view.ox = drag.ox + dx; view.oy = drag.oy + dy; }
+  }
+  cursor = s2w(...p);
+  snapHit = cmd && !cmd.selecting ? findSnap(cursor) : null;
+  const ip = inputPoint(cursor);
+  $('#coords').textContent = `${fmt(ip[0])}, ${fmt(ip[1])}`;
+  draw();
+});
+const endPtr = e => {
+  ptrs.delete(e.pointerId);
+  if (pinch) { if (ptrs.size < 2) pinch = null; drag = null; return; }
+  if (drag && !drag.moved && drag.button === 0 && e.type === 'pointerup') { const p = local(e); clickAt(p[0], p[1]); }
+  drag = null;
+};
+cv.addEventListener('pointerup', endPtr);
+cv.addEventListener('pointercancel', endPtr);
+cv.addEventListener('wheel', e => { e.preventDefault(); const p = local(e); zoomAt(p[0], p[1], view.s * (e.deltaY < 0 ? 1.15 : 1 / 1.15)); draw(); }, { passive:false });
+cv.addEventListener('auxclick', e => { if (e.button === 1 && e.detail === 2) zoomExtents(); });
+cv.addEventListener('contextmenu', e => { e.preventDefault(); submitInput(''); });
+
+cmdEl.addEventListener('keydown', e => {
+  if (e.key === 'Enter' || (e.key === ' ' && !(cmd && cmd.rawText))) { e.preventDefault(); const v = cmdEl.value; cmdEl.value = ''; submitInput(v); }
+  else if (e.key === 'Escape') { cmdEl.value = ''; cancel(); }
+});
+function cancel() { if (cmd) { endCmd(); status('*취소*'); } else { sel.clear(); setPrompt(); draw(); } }
+const typing = () => { const a = document.activeElement; return a && (a.tagName === 'TEXTAREA' || (a.tagName === 'INPUT' && a !== cmdEl) || a.tagName === 'SELECT' || a.closest('dialog')); };
+document.addEventListener('keydown', e => {
+  if (document.querySelector('dialog[open]')) return;
+  if (e.key === 'F2') { e.preventDefault(); toggleMic(); return; }
+  if (e.key === 'F8') { e.preventDefault(); setOrtho(!orthoOn); return; }
+  if (e.key === 'F3') { e.preventDefault(); setSnap(!snapOn); return; }
+  if (typing()) return;
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); return; }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); return; }
+  if (document.activeElement === cmdEl) return;
+  if (e.key === 'Escape') { cancel(); return; }
+  if (e.key === 'Delete') { eraseSelection(); return; }
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); submitInput(''); return; }
+  if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) cmdEl.focus();
+});
+function setOrtho(v) { orthoOn = v; $('#tOrtho').classList.toggle('on', v); status(v ? '직교 켜짐' : '직교 꺼짐'); }
+function setSnap(v) { snapOn = v; $('#tSnap').classList.toggle('on', v); status(v ? '스냅 켜짐' : '스냅 꺼짐'); }
+$('#tOrtho').onclick = () => setOrtho(!orthoOn);
+$('#tSnap').onclick = () => setSnap(!snapOn);
+$('#layerSel').onchange = e => { curLayer = e.target.value; };
+$('#bUndo').onclick = undo;
+$('#bRedo').onclick = redo;
+$('#bZoom').onclick = zoomExtents;
+$('#bNew').onclick = () => {
+  if (doc.ents.length && !confirm('지금 도면을 지우고 새로 시작할까요? (실행취소로 되돌릴 수 있습니다)')) return;
+  snapshot(); doc.ents = []; sel.clear(); hist.length = 0; save(); endCmd(); zoomExtents();
+};
+window.addEventListener('resize', resize);
+
+/* ---------- export ---------- */
+function download(blob, name) {
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+const stamp = () => { const d = new Date(), z = n => String(n).padStart(2, '0'); return `${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}_${z(d.getHours())}${z(d.getMinutes())}`; };
+function dxfText(s) {
+  return s.replace(/Ø/g, '%%c').replace(/°/g, '%%d').replace(/±/g, '%%p')
+    .replace(/[^\x20-\x7e]/g, ch => '\\U+' + ch.codePointAt(0).toString(16).toUpperCase().padStart(4, '0'));
+}
+// 사무실 레이어 체계(00 지적선·02 법규제선·04 면적선·10 구조체·11 구조체-기둥·13 칸막이벽·20 창호·90 글씨)의 영문 코드명.
+// DXF R12(AC1009)는 한글 레이어명을 안전하게 못 담아서 영문으로 내보냄(UTF-8 지원 버전으로 올리면 한글 가능).
+// 층이 있는 요소는 'F1_' 같은 접두어를 붙여 층별로 레이어를 나눈다.
+const DXF_BASE = { '0':['0', 7, 'CONTINUOUS'], center:['CENTER', 1, 'CENTER'], hidden:['HIDDEN', 2, 'HIDDEN'], dim:['DIM', 3, 'CONTINUOUS'],
+  site:['00_SITE', 3, 'PHANTOM'], setback:['02_SETBACK', 1, 'PHANTOM'], ann:['90_TEXT', 3, 'CONTINUOUS'], area:['04_AREA', 1, 'CONTINUOUS'],
+  struct:['10_STRUCT', 2, 'CONTINUOUS'], col:['11_COLUMN', 2, 'CONTINUOUS'], wall:['13_PARTITION', 3, 'CONTINUOUS'], open:['20_OPENING', 4, 'CONTINUOUS'], room:['90_ROOM', 3, 'CONTINUOUS'],
+  slab:['30_SLAB', 6, 'CONTINUOUS'], equip:['40_EQUIP', 1, 'CONTINUOUS'], sheet:['70_SHEET', 8, 'CONTINUOUS'], elev:['60_ELEV', 7, 'CONTINUOUS'], sec:['61_SECTION', 1, 'CONTINUOUS'] };
+function dxfLayerOf(e) {
+  let key = isDim(e) ? 'dim' : e.layer;
+  if (e.type === 'wall') key = e.wk === 'struct' ? 'struct' : 'wall';
+  const b = DXF_BASE[key] || DXF_BASE['0'];
+  const pre = (e.floor && !['site', 'setback'].includes(key)) ? 'F' + String(e.floor).replace(/[^A-Za-z0-9]/g, '') + '_' : '';
+  return { name: pre + b[0], color: b[1], lt: b[2] };
+}
+function exportDXF() {
+  if (!doc.ents.length) return status('그린 것이 없습니다');
+  const o = [], g = (c, v) => { o.push(String(c), typeof v === 'number' ? String(Math.round(v * 1e6) / 1e6) : String(v)); };
+  const layerTable = new Map([['0', { name:'0', color:7, lt:'CONTINUOUS' }]]);
+  for (const e of doc.ents) { const L = dxfLayerOf(e); layerTable.set(L.name, L); }
+  const b = bounds(doc.ents), size = b ? Math.max(b[2] - b[0], b[3] - b[1]) : 100;
+  g(0, 'SECTION'); g(2, 'HEADER'); g(9, '$ACADVER'); g(1, 'AC1009'); g(9, '$DWGCODEPAGE'); g(3, 'ANSI_949');
+  g(9, '$LTSCALE'); g(40, Math.max(0.05, size / 500)); g(9, '$MEASUREMENT'); g(70, 1); g(0, 'ENDSEC');
+  g(0, 'SECTION'); g(2, 'TABLES');
+  g(0, 'TABLE'); g(2, 'LTYPE'); g(70, 4);
+  for (const [name, desc, pat] of [['CONTINUOUS', 'Solid line', []], ['CENTER', 'Center ____ _ ____', [31.75, -6.35, 6.35, -6.35]], ['HIDDEN', 'Hidden __ __ __', [6.35, -3.175]], ['PHANTOM', 'Phantom ______ __ __ ______', [31.75, -6.35, 6.35, -6.35, 6.35, -6.35]]]) {
+    g(0, 'LTYPE'); g(2, name); g(70, 0); g(3, desc); g(72, 65); g(73, pat.length); g(40, pat.reduce((s, v) => s + Math.abs(v), 0)); pat.forEach(v => g(49, v));
+  }
+  g(0, 'ENDTAB');
+  g(0, 'TABLE'); g(2, 'LAYER'); g(70, layerTable.size);
+  for (const { name, color, lt } of layerTable.values()) { g(0, 'LAYER'); g(2, name); g(70, 0); g(62, color); g(6, lt); }
+  g(0, 'ENDTAB');
+  g(0, 'TABLE'); g(2, 'STYLE'); g(70, 1); g(0, 'STYLE'); g(2, 'STANDARD'); g(70, 0); g(40, 0); g(41, 1); g(50, 0); g(71, 0); g(42, 2.5); g(3, 'txt'); g(4, ''); g(0, 'ENDTAB');
+  g(0, 'ENDSEC');
+  g(0, 'SECTION'); g(2, 'ENTITIES');
+  const head = (t, l) => { g(0, t); g(8, l.name); };
+  const line = (x1, y1, x2, y2, l) => { head('LINE', l); g(10, x1); g(20, y1); g(30, 0); g(11, x2); g(21, y2); g(31, 0); };
+  const text = (x, y, h, s, rotDeg, l, center) => { head('TEXT', l); g(10, x); g(20, y); g(30, 0); g(40, h); g(1, dxfText(s)); if (rotDeg) g(50, rotDeg); if (center) { g(72, 1); g(11, x); g(21, y); g(31, 0); } };
+  const poly = (pts, closed, l) => { head('POLYLINE', l); g(66, 1); g(10, 0); g(20, 0); g(30, 0); g(70, closed ? 1 : 0);
+    pts.forEach(p => { head('VERTEX', l); g(10, p[0]); g(20, p[1]); g(30, 0); }); head('SEQEND', l); };
+  for (const e of doc.ents) {
+    const l = dxfLayerOf(e);
+    switch (e.type) {
+      case 'line': line(e.x1, e.y1, e.x2, e.y2, l); break;
+      case 'circle': head('CIRCLE', l); g(10, e.cx); g(20, e.cy); g(30, 0); g(40, e.r); break;
+      case 'arc': head('ARC', l); g(10, e.cx); g(20, e.cy); g(30, 0); g(40, e.r); g(50, norm360(e.a1)); g(51, norm360(e.a2)); break;
+      case 'rect': poly(rectPts(e), true, l); break;
+      case 'polyline': poly(e.pts, !!e.closed, l); break;
+      case 'text': text(e.x, e.y, e.h, e.text, e.rot || 0, l, false); break;
+      case 'wall': poly(wallQuad(e), true, l); break;
+      case 'column': if (e.r > 0) { head('CIRCLE', l); g(10, e.cx); g(20, e.cy); g(30, 0); g(40, e.r); } else poly(columnPts(e), true, l); break;
+      case 'door': { const dg = doorGeom(e), s = e.swing === -1 ? -1 : 1, a = e.ang || 0;
+        line(e.x, e.y, dg.open[0], dg.open[1], l);
+        head('ARC', l); g(10, e.x); g(20, e.y); g(30, 0); g(40, e.w || 900); g(50, norm360(s === 1 ? a : a - 90)); g(51, norm360(s === 1 ? a + 90 : a)); break; }
+      case 'window': windowLines(e).forEach(q => line(...q, l)); break;
+      case 'room': { const c = polyCentroid(e.pts), ar = polyAreaM2(e.pts); text(c[0], c[1], Math.max(doc.dimTxt * 1.2, 1), `${e.name || ''} ${ar.toFixed(2)}㎡`, 0, l, true); break; }
+      case 'bldg': case 'slab': poly(e.pts, true, l); break;
+      case 'equip': poly(equipPts(e), true, l); if (e.name) text(e.cx, e.cy + (e.d || 500) / 2 + Math.max(doc.dimTxt, 100) * 0.4, Math.max(doc.dimTxt * 0.9, 100), e.name, 0, l, true); break;
+      default:
+        if (isDim(e)) {
+          const d = dimGeom(e);
+          d.lines.forEach(q => line(...q, l));
+          d.tris.forEach(t => { head('SOLID', l); g(10, t[0][0]); g(20, t[0][1]); g(30, 0); g(11, t[1][0]); g(21, t[1][1]); g(31, 0); g(12, t[2][0]); g(22, t[2][1]); g(32, 0); g(13, t[2][0]); g(23, t[2][1]); g(33, 0); });
+          d.texts.forEach(t => text(t.x, t.y, t.h, t.text, t.rot / D2R, l, true));
+        }
+    }
+  }
+  g(0, 'ENDSEC'); g(0, 'EOF');
+  download(new Blob([o.join('\r\n') + '\r\n'], { type:'application/dxf' }), `drawing_${stamp()}.dxf`);
+  status('DXF 저장됨');
+}
+$('#bDxf').onclick = exportDXF;
+$('#bPng').onclick = () => cv.toBlob(b => download(b, `drawing_${stamp()}.png`));
+
+/* ---------- AI ---------- */
+const logEl = $('#log'), qEl = $('#q');
+const hist = []; // [{role, content:string}] text-only conversation memory
+let attachment = null, busy = false;
+
+function addMsg(kind, text, sub) {
+  const d = document.createElement('div'); d.className = 'msg ' + kind; d.textContent = text;
+  if (sub) { const s = document.createElement('span'); s.className = 't'; s.textContent = sub; d.appendChild(s); }
+  logEl.appendChild(d); logEl.scrollTop = logEl.scrollHeight; return d;
+}
+
+const SYS_ARCH = `당신은 건설회사 건축설계팀의 CAD 제도 도우미입니다. 사용자의 말(음성 인식이라 오타·숫자 오인식 가능)이나 손 스케치(사진/PDF)를 해석해 apply_drawing 도구로 **건축 도면**을 그리고 고칩니다. 도면은 허가 도서 수준으로 정확해야 하고, 최종 서명은 사내 건축사가 합니다.
+
+[좌표·단위] mm, X=동쪽, Y=북쪽(위). 현재 도면 JSON의 site(대지 정보)와 layer "site"(대지 경계 폴리라인)·"setback"(건축선 후퇴선)이 있으면 그 좌표계를 그대로 쓰고, 건물은 대지 경계와 후퇴선 안쪽에만 배치합니다. 대지가 없으면 새 형상의 중심을 원점에 둡니다.
+
+[층] levels = 층 목록 {id, name, el=바닥 레벨(m), h=층고(m)}. 요소의 floor 필드는 levels의 id입니다(생략하면 현재 층 cur). 층이 필요하면 levels로 추가·수정하고, 사용자가 층고·레벨을 말하지 않으면 가정값을 쓰되 message에 밝힙니다. 바닥 레벨이 음수인 층은 지하층입니다.
+
+[건축 요소] (모두 floor 지정 가능)
+- wall: 벽 중심선 x1,y1,x2,y2 + t(두께 mm) + wk("struct" 구조벽/"partition" 칸막이벽). 두께 말이 없으면 외벽 200(struct), 칸막이 100(partition)으로 가정하고 message에 밝힘. 벽끼리는 끝점이 정확히 만나게 그립니다.
+- column: 기둥 중심 cx,cy + w,d(사각, mm) 또는 r(원, 반지름).
+- door: 경첩 위치 x,y + w(문 폭, 기본 900) + ang(닫힌 문이 벽을 따라 놓인 방향 °) + swing(1=반시계쪽으로 열림, -1=시계쪽) + dh(문 높이 mm, 모르면 생략).
+- window: 벽 위 x1,y1,x2,y2(창 양끝) + sill(창대 높이 mm, 기본 900) + wh(창 높이 mm, 기본 1500).
+- room: 실 경계 pts(벽 안쪽면 기준 닫힌 다각형) + name(한글 실명). 면적은 자동 표기되니 직접 쓰지 않습니다.
+- bldg: 그 층 건물 외곽 pts(벽체 바깥면 기준 닫힌 다각형). **층마다 반드시 그립니다**(건폐율·용적률 자동 계산 대상). kind="excl"은 용적률 산정에서 제외되는 부분(주차장 등)이라고 사용자가 말한 경우에만 씁니다.
+- slab: 캐노피·지붕처럼 수평으로 얹히는 판 pts(닫힌 다각형) + top(상단 레벨, m) + t(두께 mm, 기본 150) + name. 층 바닥 슬라브는 그리지 않아도 층 레벨로 자동 처리됩니다.
+- equip: 설비. 중심 cx,cy + w,d(mm, 주유기 쌍은 기본 1200x500) + ang(°) + kind("dispenser" 주유기 / "box" 일반 상자) + name + h(높이 mm, 모르면 생략).
+- 입면도·단면도는 이 요소들에서 프로그램이 자동 생성하니 직접 그리지 않습니다.
+- 일반 형상(line/polyline/rect/circle/arc/text/dim…)도 그대로 쓸 수 있습니다.
+
+[법규] 건폐율·용적률·면적은 프로그램이 자동 계산합니다. 숫자를 직접 계산해 적지 말고, 시스템이 "한도 초과"를 알려 주면 건물 크기를 줄여 한도 안으로 고치세요. 법규 수치(이격거리, 대지안의 공지, 높이 제한 등)는 사용자가 말했거나 site에 주어진 값만 쓰고, 없으면 만들어 내지 말고 message에 "확인 필요"라고 알립니다. 주차 대수·피난·지구단위계획처럼 판정이 애매한 항목은 계산하지 않고 "건축사 확인 필요"로 표시합니다.
+
+[제도] 구조(기둥·벽)는 격자에 맞추고, 실 이름은 한글, 치수는 정수 mm. 문은 벽 위에, 창은 벽 위에 놓습니다. 손 스케치가 첨부되면 실의 배치·연결 관계를 유지하고 비율만 면적에 맞추며, 가정한 치수는 message에 밝힙니다. 수정 요청이면 clear 하지 말고 modify·remove·add로 필요한 부분만 바꿉니다.
+
+[아래는 일반 형상(기계 부품 등) 제도 규칙입니다. 건축 도면에서는 위 규칙이 우선합니다.]
+`;
+const SYS_GEN = `당신은 2D 도면을 그리는 CAD 제도 도우미입니다. 사용자의 말(음성 인식 결과라 오타·띄어쓰기 오류, 숫자 오인식이 있을 수 있음)을 해석해 반드시 apply_drawing 도구로 도면을 바꿉니다.
+
+[좌표·단위]
+- 단위 mm. X는 오른쪽, Y는 위쪽이 +. 위치에 대한 말이 없으면 새 형상의 중심을 원점(0,0)에 둡니다.
+- 각도는 도(°). X축 + 방향이 0°, 반시계 방향이 +.
+- 좌표는 소수점 셋째 자리까지 정확히 계산합니다(삼각함수 포함).
+
+[엔티티]
+- line: x1,y1,x2,y2
+- circle: cx,cy,r
+- arc: cx,cy,r,a1,a2 (a1에서 a2까지 반시계)
+- rect: x,y(왼쪽 아래 모서리),w,h
+- polyline: pts [[x,y],...], closed
+- text: x,y(왼쪽 아래 기준),h(글자 높이),text,rot(°)
+- dim: 선형 치수. x1,y1,x2,y2 = 측정할 두 점. dir: "h"=수평거리, "v"=수직거리, "a"=두 점 사이 직선거리. off: 치수선 위치 — h면 y1에서 Y방향으로 떨어진 거리, v면 x1에서 X방향으로 떨어진 거리, a면 (점1→점2) 방향의 왼쪽 법선 방향 거리(음수면 오른쪽). text를 생략하면 실제 길이가 자동 표기됩니다.
+- dimdia: 지름 치수. cx,cy,r(원의 반지름),ang(치수선 방향 °). 자동 표기 "Ø지름".
+- dimrad: 반지름 치수. cx,cy,r,ang. 자동 표기 "R반지름".
+- layer: "0"(외형선, 기본), "center"(중심선), "hidden"(숨은선), "dim"(치수). dim·dimdia·dimrad는 항상 "dim".
+
+[제도 규칙]
+- 원형 부품(플랜지, 와셔, 원판 등): 외경·내경 원은 "0", PCD 원은 "center". 볼트 구멍은 PCD 위에 등간격, 특별한 말이 없으면 i번째 구멍 각도 = 360/n·i + 180/n (중심선에 걸치지 않게).
+- 원형 형상에는 수평·수직 중심선(center)을 외곽보다 양쪽으로 크기의 4~6% 정도 더 길게 긋습니다. 볼트 구멍마다 작은 십자 중심선은 구멍 지름의 1.6배 정도 길이로.
+- 치수: 외경·내경은 dimdia, PCD는 dimdia에 text "PCD Ø값", 같은 구멍 여러 개는 하나만 dimdia에 text "n-Ø값". 서로 겹치지 않게 ang를 다르게(예: 30°, 150°, 210°, 330° 등) 배치합니다.
+- 각진 부품: 전체 가로(dir "h")·세로(dir "v") 치수를 외곽에서 크기의 8~12% 떨어뜨려 배치. 구멍 위치 치수도 필요하면 넣습니다.
+- dimTxt(치수 문자 높이)는 도면 최대 크기의 약 2.5%로 정하고(최소 2.5), 바꿀 필요가 있을 때만 보냅니다.
+- 치수가 주어지지 않은 부분은 일반적인 비례로 합리적으로 정하고, message에 가정한 값을 밝힙니다.
+
+[수정]
+- 매번 현재 도면(JSON, 각 엔티티 id 포함)이 주어집니다. 수정 요청이면 clear하지 말고 modify(id + 바꿀 필드만)·remove·add로 필요한 부분만 바꾸고, 관련 치수·중심선도 같이 고칩니다.
+- 완전히 다른 새 도면을 요청하면 clear=true로 하고 add에 전부 넣습니다.
+
+[첨부 도면(PDF/이미지)]
+- 첨부가 있으면 그 형상을 따라 그립니다. 적힌 치수를 우선 사용하고, 적혀 있지 않은 치수는 적힌 치수와의 비율로 추정해 message에 추정값을 알려 줍니다.
+
+message는 한국어로 한두 문장만.`;
+const SYS = SYS_ARCH + SYS_GEN;
+
+const NUM = { type:'number' };
+const TOOL = {
+  name: 'apply_drawing',
+  description: '현재 도면에 추가·수정·삭제를 적용한다.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      message: { type:'string', description:'사용자에게 보여줄 한국어 한두 문장. 가정·추정한 치수가 있으면 밝힌다.' },
+      clear: { type:'boolean', description:'true면 기존 도면을 모두 지우고 add로 새로 그린다.' },
+      dimTxt: { type:'number', description:'치수·문자 높이(mm). 바꿀 때만.' },
+      levels: { type:'array', description:'층 추가·수정. id는 층 식별자, el=바닥 레벨(m), h=층고(m).', items:{ type:'object', properties:{ id:{ type:'string' }, name:{ type:'string' }, el:{ type:'number' }, h:{ type:'number' } }, required:['id', 'el', 'h'] } },
+      cur: { type:'string', description:'현재 층 id를 바꿀 때만.' },
+      remove: { type:'array', items:{ type:'string' }, description:'지울 엔티티 id' },
+      modify: { type:'array', description:'id와 바꿀 필드만', items:{ type:'object', properties:{ id:{ type:'string' } }, required:['id'] } },
+      add: { type:'array', items: {
+        type: 'object',
+        properties: {
+          type: { type:'string', enum:['line', 'circle', 'arc', 'rect', 'polyline', 'text', 'dim', 'dimdia', 'dimrad', 'wall', 'column', 'door', 'window', 'room', 'bldg', 'slab', 'equip'] },
+          layer: { type:'string', enum:['0', 'center', 'hidden', 'dim'] },
+          floor: { type:'string', description:'요소가 속한 층 id(levels의 id). 생략하면 현재 층.' },
+          wk: { type:'string', enum:['struct', 'partition'], description:'wall 종류' },
+          kind: { type:'string', enum:['normal', 'excl', 'dispenser', 'box'], description:'bldg: excl=용적률 산정 제외 부분 / equip: dispenser=주유기, box=일반 설비 상자' },
+          name: { type:'string', description:'room 실명' },
+          t:NUM, d:NUM, swing:NUM, sill:NUM, wh:NUM, dh:NUM, top:NUM,
+          x1:NUM, y1:NUM, x2:NUM, y2:NUM, cx:NUM, cy:NUM, r:NUM, a1:NUM, a2:NUM, x:NUM, y:NUM, w:NUM, h:NUM,
+          pts: { type:'array', items:{ type:'array', items:NUM } }, closed: { type:'boolean' },
+          text: { type:'string' }, rot:NUM, dir: { type:'string', enum:['h', 'v', 'a'] }, off:NUM, ang:NUM
+        },
+        required: ['type']
+      } }
+    },
+    required: ['message']
+  }
+};
+
+const REQ = { line:['x1', 'y1', 'x2', 'y2'], circle:['cx', 'cy', 'r'], arc:['cx', 'cy', 'r', 'a1', 'a2'], rect:['x', 'y', 'w', 'h'],
+  text:['x', 'y'], dim:['x1', 'y1', 'x2', 'y2'], dimdia:['cx', 'cy', 'r'], dimrad:['cx', 'cy', 'r'], polyline:[],
+  wall:['x1', 'y1', 'x2', 'y2'], column:['cx', 'cy'], door:['x', 'y'], window:['x1', 'y1', 'x2', 'y2'], room:[], bldg:[], slab:['top'], equip:['cx', 'cy'] };
+const NUM_KEYS = ['x1', 'y1', 'x2', 'y2', 'cx', 'cy', 'r', 'a1', 'a2', 'x', 'y', 'w', 'h', 'rot', 'off', 'ang', 't', 'd', 'sill', 'wh', 'dh', 'top'];
+const AUTO_LAYER = { wall:'wall', column:'col', door:'open', window:'open', room:'room', bldg:'area', slab:'slab', equip:'equip' };
+function sanitize(a) {
+  if (!a || !REQ[a.type]) return null;
+  const e = { type:a.type, layer:LAYERS[a.layer] ? a.layer : '0' };
+  for (const k of NUM_KEYS) if (a[k] != null && Number.isFinite(+a[k])) e[k] = +a[k];
+  if (!REQ[a.type].every(k => k in e)) return null;
+  if (a.floor != null && lvOf(String(a.floor))) e.floor = String(a.floor);
+  if (a.tag && typeof a.tag === 'string') e.tag = a.tag;
+  if (AUTO_LAYER[e.type]) e.layer = AUTO_LAYER[e.type];
+  if (e.type === 'wall') {
+    if (!(e.t > 0)) e.t = 200;
+    e.wk = (a.wk === 'struct' || a.wk === 'partition') ? a.wk : (e.t >= 200 ? 'struct' : 'partition');
+    e.layer = e.wk === 'struct' ? 'struct' : 'wall';
+  }
+  if (e.type === 'column' && !(e.r > 0)) { if (!(e.w > 0)) e.w = 200; if (!(e.d > 0)) e.d = e.w; }
+  if (e.type === 'door') { if (!(e.w > 0)) e.w = 900; e.ang = e.ang || 0; e.swing = a.swing === -1 ? -1 : 1; }
+  if (e.type === 'window') { if (!Number.isFinite(e.sill)) e.sill = 900; if (!(e.wh > 0)) e.wh = 1500; }
+  if (e.type === 'equip') { if (!(e.w > 0)) e.w = 1200; if (!(e.d > 0)) e.d = 500; e.ang = e.ang || 0; e.name = String(a.name || ''); e.kind = a.kind === 'box' ? 'box' : 'dispenser'; }
+  if (e.type === 'room' || e.type === 'slab') e.name = String(a.name || '');
+  if (e.type === 'slab' && !(e.t > 0)) e.t = 150;
+  if (e.type === 'bldg') e.kind = a.kind === 'excl' ? 'excl' : 'normal';
+  if (isDim(e)) { e.layer = 'dim'; if (typeof a.text === 'string' && a.text) e.text = a.text; if (e.type === 'dim') e.dir = ['h', 'v', 'a'].includes(a.dir) ? a.dir : 'a'; }
+  if (e.type === 'polyline' || e.type === 'room' || e.type === 'bldg' || e.type === 'slab') {
+    const pts = (a.pts || []).filter(q => Array.isArray(q) && q.length >= 2 && Number.isFinite(+q[0]) && Number.isFinite(+q[1])).map(q => [+q[0], +q[1]]);
+    if (pts.length < (e.type === 'polyline' ? 2 : 3)) return null; e.pts = pts; if (e.type === 'polyline') e.closed = !!a.closed;
+  }
+  if (e.type === 'text') { if (!a.text) return null; e.text = String(a.text); if (!(e.h > 0)) e.h = doc.dimTxt; }
+  if (e.type === 'rect') { if (e.w < 0) { e.x += e.w; e.w = -e.w; } if (e.h < 0) { e.y += e.h; e.h = -e.h; } }
+  if ('r' in e && !(e.r > 0)) return null;
+  return e;
+}
+function applyAI(inp) {
+  const wasEmpty = !doc.ents.length;
+  snapshot();
+  if (inp.clear) { doc.ents = []; sel.clear(); }
+  if (Number.isFinite(inp.dimTxt) && inp.dimTxt > 0) doc.dimTxt = inp.dimTxt;
+  for (const l of inp.levels || []) { // 층 추가·수정 (id, name, el=바닥 레벨 m, h=층고 m)
+    if (!l || l.id == null || !Number.isFinite(+l.el) || !(+l.h > 0)) continue;
+    const id = String(l.id), cur = lvOf(id), v = { id, name:String(l.name || id + '층'), el:+l.el, h:+l.h };
+    if (cur) Object.assign(cur, v); else doc.levels.push(v);
+  }
+  if (inp.cur != null && lvOf(String(inp.cur))) doc.cur = String(inp.cur);
+  if ((inp.levels || []).length || inp.cur != null) renderFloors();
+  const rm = new Set(inp.remove || []);
+  if (rm.size) { doc.ents = doc.ents.filter(e => !rm.has(e.id)); rm.forEach(id => sel.delete(id)); }
+  let changed = 0, added = 0;
+  for (const m of inp.modify || []) {
+    const e = m && findEnt(m.id); if (!e) continue;
+    const merged = sanitize({ ...e, ...m, type:e.type });
+    if (merged) { Object.keys(e).forEach(k => { if (k !== 'id') delete e[k]; }); Object.assign(e, merged); changed++; }
+  }
+  for (const a of inp.add || []) { const e = sanitize(a); if (e) { addEnt(e); added++; } }
+  save();
+  if (inp.clear || wasEmpty) zoomExtents(); else draw();
+  return { added, changed, removed:rm.size };
+}
+const round3 = (k, v) => typeof v === 'number' ? Math.round(v * 1000) / 1000 : v;
+
+async function send(textArg, retry = 0) {
+  const text = (textArg ?? qEl.value).trim();
+  let followUp = null;
+  if (busy || (!text && !attachment)) return;
+  if (!settings.key) { addMsg('err', '먼저 ⚙ 설정에서 Anthropic API 키를 넣어 주세요.'); openSettings(); return; }
+  busy = true; $('#send').disabled = true;
+  const att = attachment; attachment = null; $('#attachName').textContent = '';
+  qEl.value = '';
+  addMsg('user', (att ? `📎 ${att.name}\n` : '') + (text || '첨부한 도면을 따라 그려줘'));
+  const pending = addMsg('ai', '⏳ 그리는 중…');
+  const t0 = performance.now();
+  const timer = setInterval(() => { pending.textContent = `⏳ 그리는 중… ${((performance.now() - t0) / 1000).toFixed(1)}초`; }, 100);
+
+  const lawNow = calcLaw();
+  const state = JSON.stringify({
+    dimTxt:doc.dimTxt, levels:doc.levels, cur:doc.cur,
+    site: doc.site ? { addr:doc.site.addr, area:doc.site.area ?? doc.site.areaCalc, uname:doc.site.uname, 건폐율한도:doc.site.coverage, 용적률한도:doc.site.floor, 접한도로:doc.site.narrowestRoad, 후퇴선:doc.site.setbacks } : null,
+    현재법규계산: doc.site ? { 건축면적:+lawNow.cover.toFixed(2), 연면적:+lawNow.far.toFixed(2), 건폐율:lawNow.coverPct == null ? null : +lawNow.coverPct.toFixed(2), 용적률:lawNow.farPct == null ? null : +lawNow.farPct.toFixed(2) } : null,
+    ents:doc.ents }, round3);
+  const content = [];
+  if (att) content.push(att.kind === 'pdf'
+    ? { type:'document', source:{ type:'base64', media_type:'application/pdf', data:att.data } }
+    : { type:'image', source:{ type:'base64', media_type:att.mime, data:att.data } });
+  const userText = text || '첨부한 도면을 따라 그려줘';
+  content.push({ type:'text', text:`현재 도면:\n${state}\n\n요청: ${userText}` });
+  const body = {
+    model: settings.model, max_tokens: 16000, system: SYS,
+    tools: [TOOL], tool_choice: { type:'tool', name:'apply_drawing' },
+    messages: [...hist.slice(-8), { role:'user', content }]
+  };
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'content-type':'application/json', 'x-api-key':settings.key, 'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true' },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const m = data.error && data.error.message || res.statusText;
+      throw new Error(res.status === 401 ? 'API 키가 올바르지 않습니다. 설정에서 확인해 주세요.' : `API 오류 (${res.status}): ${m}`);
+    }
+    const tu = (data.content || []).find(b => b.type === 'tool_use');
+    if (!tu) throw new Error('도면 응답을 받지 못했습니다.');
+    if (data.stop_reason === 'max_tokens') throw new Error('도면이 너무 커서 응답이 잘렸습니다. 나눠서 요청해 주세요.');
+    const r = applyAI(tu.input || {});
+    const sec = ((performance.now() - t0) / 1000).toFixed(1);
+    clearInterval(timer); pending.remove();
+    const msg = tu.input.message || '완료했습니다.';
+    addMsg('ai', msg, `${sec}초 · 추가 ${r.added} · 수정 ${r.changed} · 삭제 ${r.removed}`);
+    hist.push({ role:'user', content:(att ? `[첨부: ${att.name}] ` : '') + userText }, { role:'assistant', content:msg });
+    // 법규 자동 재계산: 한도를 넘으면 그 결과를 AI에게 돌려줘서 스스로 고치게 함(최대 2회)
+    const lw = calcLaw();
+    if (lw.violations.length) {
+      if (retry < 2) followUp = '[자동 재계산] 방금 도면이 법규 한도를 넘었습니다: ' + lw.violations.join('; ') + '. 건물 외곽과 벽을 한도 안으로 고쳐 주세요.';
+      else addMsg('err', '법규 한도를 아직 넘습니다: ' + lw.violations.join(' / ') + '\n직접 크기를 줄이거나 다시 요청해 주세요.');
+    }
+  } catch (err) {
+    clearInterval(timer); pending.remove();
+    addMsg('err', err.message === 'Failed to fetch' ? '네트워크 오류로 요청하지 못했습니다. 인터넷 연결을 확인해 주세요.' : err.message);
+  } finally {
+    busy = false; $('#send').disabled = false;
+  }
+  if (followUp) send(followUp, retry + 1);
+}
+$('#send').onclick = () => send();
+qEl.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); } });
+
+$('#bAttach').onclick = () => $('#file').click();
+$('#file').onchange = e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  if (f.size > 20 * 1024 * 1024) { addMsg('err', '파일이 너무 큽니다 (20MB 이하).'); return; }
+  const rd = new FileReader();
+  rd.onload = () => {
+    const data = String(rd.result).split(',')[1];
+    attachment = { name:f.name, kind:f.type === 'application/pdf' ? 'pdf' : 'image', mime:f.type, data };
+    $('#attachName').textContent = '📎 ' + f.name;
+  };
+  rd.readAsDataURL(f);
+};
+
+/* ---------- voice ---------- */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null, recOn = false;
+function toggleMic() {
+  if (!SR) { addMsg('err', '이 브라우저는 음성 인식을 지원하지 않습니다. 크롬이나 엣지에서 열어 주세요.'); return; }
+  if (recOn) { rec.stop(); return; }
+  rec = new SR(); rec.lang = 'ko-KR'; rec.interimResults = true; rec.continuous = false;
+  let finalText = '';
+  const before = qEl.value ? qEl.value.trim() + ' ' : '';
+  rec.onresult = ev => {
+    let interim = '';
+    for (let i = ev.resultIndex; i < ev.results.length; i++) { const r = ev.results[i]; if (r.isFinal) finalText += r[0].transcript; else interim += r[0].transcript; }
+    qEl.value = before + finalText + interim;
+  };
+  rec.onerror = ev => {
+    if (ev.error === 'no-speech' || ev.error === 'aborted') return;
+    addMsg('err', ev.error === 'not-allowed' ? '마이크 권한이 막혀 있습니다. 주소창 왼쪽 아이콘에서 마이크를 허용해 주세요.' : '음성 인식 오류: ' + ev.error);
+  };
+  rec.onend = () => { recOn = false; $('#mic').classList.remove('rec'); if (settings.autoSend && finalText.trim()) send(); };
+  rec.start(); recOn = true; $('#mic').classList.add('rec');
+}
+$('#mic').onclick = toggleMic;
+
+/* ---------- settings / help ---------- */
+const dlgSet = $('#dlgSet');
+const aliasText = a => Object.entries(a).map(([k, v]) => `${k}=${v}`).join('\n');
+function openSettings() {
+  $('#sKey').value = settings.key; $('#sModel').value = settings.model; $('#sAuto').checked = settings.autoSend;
+  $('#sAlias').value = aliasText(settings.aliases); dlgSet.showModal();
+}
+$('#bSet').onclick = openSettings;
+$('#sCancel').onclick = () => dlgSet.close();
+$('#sReset').onclick = () => { $('#sAlias').value = aliasText(DEFAULT_ALIASES); };
+$('#sSave').onclick = () => {
+  const al = {}, bad = [];
+  for (const ln of $('#sAlias').value.split('\n')) {
+    const m = ln.trim().match(/^([A-Za-z0-9]+)\s*=\s*([A-Za-z]+)$/); if (!ln.trim()) continue;
+    if (m && CMDS[m[2].toUpperCase()]) al[m[1].toUpperCase()] = m[2].toUpperCase(); else bad.push(ln.trim());
+  }
+  if (bad.length) { alert('이해하지 못한 줄:\n' + bad.join('\n')); return; }
+  settings.key = $('#sKey').value.trim(); settings.model = $('#sModel').value; settings.autoSend = $('#sAuto').checked; settings.aliases = al;
+  store.set('vc.settings', settings); dlgSet.close(); buildHelp(); status('설정 저장됨');
+};
+function buildHelp() {
+  const rows = Object.keys(CMD_DESC).map(name => {
+    const keys = Object.entries(settings.aliases).filter(([, v]) => v === name).map(([k]) => k);
+    return `<tr><td>${[...keys, name].join(', ')}</td><td>${CMD_DESC[name]}</td></tr>`;
+  });
+  $('#helpTable').innerHTML = rows.join('');
+}
+$('#bHelp').onclick = () => $('#dlgHelp').showModal();
+$('#hClose').onclick = () => $('#dlgHelp').close();
+
+/* ---------- 인허가 브릿지 연동 (localStorage 'pb.handoff') ----------
+   법규계산기가 저장한 대지 정보를 읽어 대지 경계(00 지적선)·방위·법규 박스·건축선 후퇴선(02 법규제선)을 그린다.
+   값을 모르면 null 그대로 표시하고 추정해서 채우지 않는다. 단위 mm, Y+ = 북쪽. */
+LAYERS.site = { color:'#5ad08a', dash:[18, 4, 4, 4, 4, 4] };   // 00 지적선
+LAYERS.setback = { color:'#ff6a6a', dash:[14, 5] };            // 02 법규제선
+LAYERS.ann = { color:'#cfd6de', dash:[] };                     // 90 글씨
+for (const [v, t] of [['site', '지적선(00)'], ['setback', '법규제선(02)'], ['ann', '글씨(90)']]) {
+  const o = document.createElement('option'); o.value = v; o.textContent = t; $('#layerSel').appendChild(o);
+}
+let pickRoadMode = false;
+const inPoly = (pt, poly) => { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const [xi, yi] = poly[i], [xj, yj] = poly[j]; if ((yi > pt[1]) !== (yj > pt[1]) && pt[0] < (xj - xi) * (pt[1] - yi) / (yj - yi) + xi) c = !c; } return c; };
+function lineX(p1, p2, p3, p4) { // 두 직선(p1p2, p3p4)의 교점
+  const d = (p2[0] - p1[0]) * (p4[1] - p3[1]) - (p2[1] - p1[1]) * (p4[0] - p3[0]); if (Math.abs(d) < 1e-9) return null;
+  const t = ((p3[0] - p1[0]) * (p4[1] - p3[1]) - (p3[1] - p1[1]) * (p4[0] - p3[0])) / d;
+  return [p1[0] + t * (p2[0] - p1[0]), p1[1] + t * (p2[1] - p1[1])];
+}
+function siteRings() { return doc.ents.filter(e => e.type === 'polyline' && e.tag === 'siteBoundary'); }
+
+function applyHandoff(h, auto) {
+  const g = h.boundary;
+  if (h.multiParcel || !g || !g.coordinates) {
+    addMsg('err', '인허가 브릿지에서 대지 정보를 받았지만 ' + (h.multiParcel ? '여러 필지라서 경계를 아직 합치지 못합니다(다중 필지는 사안별로 정리 예정).' : '대지 경계 좌표가 없습니다.') + ' 대지 면적과 법규 한도만 표시합니다.');
+    doc.site = { addr:h.addr, pnu:h.pnu, area:h.area, uname:h.uname, jimok:h.jimok, coverage:h.coverage, floor:h.floor, narrowestRoad:h.narrowestRoad, sunlightRule:h.sunlightRule, overlayRisks:h.overlayRisks || [], createdAt:h.createdAt, noBoundary:true };
+    save(); renderLawBox(); return;
+  }
+  const polys = g.type === 'MultiPolygon' ? g.coordinates : [g.coordinates];
+  const rings = polys.map(p => { const r = p[0]; const f = r[0], l = r[r.length - 1]; return (f[0] === l[0] && f[1] === l[1]) ? r.slice(0, -1) : r.slice(); });
+  const all = rings.flat();
+  if (all.length < 3) { addMsg('err', '대지 경계 꼭짓점이 3개 미만이라 그릴 수 없습니다.'); return; }
+  const lons = all.map(p => p[0]), lats = all.map(p => p[1]);
+  const lon0 = (Math.min(...lons) + Math.max(...lons)) / 2, lat0 = (Math.min(...lats) + Math.max(...lats)) / 2;
+  const kx = Math.cos(lat0 * D2R) * 111320 * 1000, ky = 110574 * 1000; // 경위도 -> mm (필지 규모 오차 cm 이하)
+  const local = rings.map(r => r.map(p => [(p[0] - lon0) * kx, (p[1] - lat0) * ky]));
+  snapshot();
+  doc.ents = doc.ents.filter(e => !['site', 'setback'].includes(e.layer) && !(e.layer === 'ann' && e.tag === 'siteNote'));
+  let calc = 0;
+  local.forEach(r => { calc += polyAreaM2(r); addEnt({ type:'polyline', pts:r, closed:true, layer:'site', tag:'siteBoundary' }); });
+  const b = bounds(doc.ents), size = Math.max(b[2] - b[0], b[3] - b[1]), th = size / 70;
+  addEnt({ type:'text', x:b[0], y:b[3] + th * 1.6, h:th, text:`${h.addr || ''}  대지면적 ${Number(h.area ?? calc).toFixed(2)}㎡`, layer:'ann', tag:'siteNote' });
+  // 방위표(북쪽 = +Y)
+  const nx = b[2] + size * 0.08, ny = b[3] - size * 0.02, L = size * 0.1;
+  addEnt({ type:'line', x1:nx, y1:ny - L, x2:nx, y2:ny, layer:'ann', tag:'siteNote' });
+  addEnt({ type:'polyline', pts:[[nx, ny], [nx - L * 0.12, ny - L * 0.3], [nx + L * 0.12, ny - L * 0.3]], closed:true, layer:'ann', tag:'siteNote' });
+  addEnt({ type:'text', x:nx - th * 0.4, y:ny + th * 0.4, h:th, text:'N', layer:'ann', tag:'siteNote' });
+  doc.geo = { lon0, lat0, kx, ky };
+  doc.site = { addr:h.addr, pnu:h.pnu, area:h.area, areaCalc:calc, uname:h.uname, jimok:h.jimok, coverage:h.coverage, floor:h.floor, narrowestRoad:h.narrowestRoad, roadFrontageWidth:h.roadFrontageWidth, sunlightRule:h.sunlightRule, overlayRisks:h.overlayRisks || [], createdAt:h.createdAt, setbacks:[] };
+  save(); zoomExtents(); renderLawBox();
+  const diff = h.area ? ((calc - h.area) / h.area * 100) : null;
+  addMsg('sys', `인허가 브릿지에서 대지 정보를 받아 그렸습니다: ${h.addr}\n지적 경계로 계산한 면적 ${calc.toFixed(2)}㎡` + (diff == null ? '' : ` / 조회된 대지면적 ${h.area}㎡ (차이 ${diff.toFixed(2)}%)`) + '\n※ 지적 경계는 측량값과 수십 cm 차이가 날 수 있습니다.');
+  store.set('pb.handoff.applied', h.createdAt);
+}
+
+function renderLawBox() {
+  const el = $('#lawbox'), s = doc.site;
+  if (!s) { el.hidden = true; return; }
+  const area = s.area ?? s.areaCalc ?? null, f = v => v == null ? '<b class="warn">미확정</b>' : `<b>${v}</b>`;
+  const lim = pct => (area != null && pct != null) ? `${(area * pct / 100).toFixed(2)}㎡` : '미확정';
+  const risks = (s.overlayRisks || []).map(r => `<div class="${r.blocking ? 'warn' : ''}">· ${r.label}${r.blocking ? ' (건축 제한)' : ''}</div>`).join('');
+  const c = calcLaw(); let lawNow;
+  if (!c.n) lawNow = `<div class="row"><span>현재 건축면적 / 연면적</span><b>— (층마다 건물 외곽을 그리면 자동 계산)</b></div>`;
+  else {
+    const over1 = s.coverage != null && c.coverPct != null && c.coverPct > s.coverage + 1e-9, over2 = s.floor != null && c.farPct != null && c.farPct > s.floor + 1e-9;
+    lawNow = `<div class="row"><span>현재 건축면적</span><b class="${over1 ? 'warn' : ''}">${c.cover.toFixed(2)}㎡${c.coverPct == null ? '' : ` (${c.coverPct.toFixed(2)}%)`}</b></div>` +
+      `<div class="row"><span>현재 연면적</span><b class="${over2 ? 'warn' : ''}">${c.far.toFixed(2)}㎡${c.farPct == null ? '' : ` (${c.farPct.toFixed(2)}%)`}</b></div>` +
+      c.violations.map(v => `<div class="warn">⚠ ${v}</div>`).join('');
+  }
+  const road = s.narrowestRoad, w = road && road.width;
+  let roadHtml;
+  if (!road) roadHtml = '<div class="note">접한 도로 정보 없음</div>';
+  else if (w == null) roadHtml = `<div class="warn">도로 폭 미확인 (${road.raw || ''}) — 4m 미만이면 건축선이 후퇴됩니다. 관할 구청 확인 필요.</div>`;
+  else if (w < 4) roadHtml = `<div>도로 폭 <b>${w}m</b> → 건축선 후퇴 <b>${((4 - w) / 2).toFixed(2)}m</b> (건축법 제46조)</div>` +
+    (s.setbacks && s.setbacks.length ? `<div class="note">후퇴선 ${s.setbacks.length}개 그림</div>` : '') +
+    `<button id="bPickRoad">${pickRoadMode ? '변을 클릭하세요… (취소: Esc)' : '도로에 접한 변 지정'}</button>`;
+  else roadHtml = `<div>도로 폭 <b>${w}m</b> — 건축선 후퇴 없음</div>`;
+  el.innerHTML = `<h3>법규 정보 · ${s.uname || '용도지역 미확정'}</h3>` +
+    `<div class="row"><span>지목</span>${f(s.jimok)}</div>` +
+    `<div class="row"><span>대지면적</span>${f(area == null ? null : area + '㎡')}</div>` +
+    `<div class="row"><span>건폐율 한도</span>${f(s.coverage == null ? null : s.coverage + '%')}</div>` +
+    `<div class="row"><span>건축면적 한도</span><b>${lim(s.coverage)}</b></div>` +
+    `<div class="row"><span>용적률 한도</span>${f(s.floor == null ? null : s.floor + '%')}</div>` +
+    `<div class="row"><span>연면적 한도</span><b>${lim(s.floor)}</b></div>` +
+    lawNow +
+    `<div style="margin-top:6px">${roadHtml}</div>` +
+    `<div class="note">정북 일조 이격: ${s.sunlightRule ? `기준 ${s.sunlightRule.heightThresholdM}m 이하 ${s.sunlightRule.distUnderM}m, 초과는 높이의 1/2` : '그 지역 조례의 일조 기준이 확정되지 않아 이격선을 그리지 않음'}</div>` +
+    (s.sunlightRule ? `<button id="bSun">정북 일조 이격선 그리기</button>` : '') +
+    (risks ? `<div style="margin-top:6px"><b>지역·지구</b>${risks}</div>` : '') +
+    `<div class="note">주차·피난·지구단위계획 등은 계산하지 않고 건축사 확인이 필요합니다.</div>`;
+  el.hidden = false;
+  const bs = $('#bSun'); if (bs) bs.onclick = drawSunlight;
+  const bp = $('#bPickRoad'); if (bp) bp.onclick = () => { pickRoadMode = !pickRoadMode; renderLawBox(); if (pickRoadMode) status('도로에 접한 대지 경계선을 클릭하세요'); };
+}
+
+/* ---------- 층(levels) · 법규 자동 재계산 · 3D용 내보내기 ---------- */
+const lvOf = id => doc.levels.find(l => l.id === id);
+function renderFloors() {
+  const fb = $('#floorbar'); fb.innerHTML = '';
+  const mk = (txt, cls, fn, title) => { const b = document.createElement('button'); b.className = cls; b.textContent = txt; if (title) b.title = title; b.onclick = fn; fb.appendChild(b); return b; };
+  const lab = document.createElement('span'); lab.className = 'meta'; lab.textContent = '층'; fb.appendChild(lab);
+  for (const l of doc.levels) mk(l.name, 'lv' + (l.id === doc.cur ? ' on' : ''), () => { doc.cur = l.id; save(); renderFloors(); draw(); }, `바닥 EL+${l.el}m · 층고 ${l.h}m (더블클릭: 수정)`).ondblclick = () => editLevel(l);
+  mk('＋ 층', 'lv', () => editLevel(null), '층 추가');
+  const cur = lvOf(doc.cur), m = document.createElement('span'); m.className = 'meta'; m.textContent = cur ? `바닥 EL ${cur.el >= 0 ? '+' : ''}${cur.el}m · 층고 ${cur.h}m${cur.el < 0 ? ' · 지하층(연면적 제외)' : ''}` : ''; fb.appendChild(m);
+}
+function editLevel(l) {
+  const top = doc.levels.reduce((mx, x) => Math.max(mx, x.el + x.h), 0);
+  const def = l ? `${l.name}, ${l.el}, ${l.h}` : `${doc.levels.length + 1}층, ${top.toFixed(2)}, 3.0`;
+  const s = prompt('층 이름, 바닥 레벨(m), 층고(m)\n예: 2층, 4.15, 3.35  (지하층은 바닥 레벨을 음수로)' + (l ? '\n※ 비워두고 확인하면 이 층과 그 층의 요소를 삭제합니다' : ''), def);
+  if (s === null) return;
+  if (!s.trim() && l && doc.levels.length > 1) {
+    if (confirm('이 층과 그 층의 도면 요소를 모두 삭제할까요?')) { snapshot(); doc.ents = doc.ents.filter(e => e.floor !== l.id); doc.levels = doc.levels.filter(x => x !== l); doc.cur = doc.levels[0].id; save(); renderFloors(); draw(); }
+    return;
+  }
+  const p = s.split(',').map(x => x.trim()), el = parseFloat(p[1]), h = parseFloat(p[2]);
+  if (!p[0] || !isFinite(el) || !(h > 0)) { addMsg('err', '입력 형식: 층이름, 바닥레벨(m), 층고(m)'); return; }
+  if (l) { l.name = p[0]; l.el = el; l.h = h; }
+  else { let id = String(doc.levels.length + 1); while (doc.levels.some(x => x.id === id)) id += 'x'; doc.levels.push({ id, name:p[0], el, h }); doc.cur = id; }
+  save(); renderFloors(); draw();
+}
+// 건폐율 = 건축면적(지상층 중 가장 큰 층의 건물 외곽 합) / 대지면적, 용적률 = 지상층 연면적(제외 표시한 부분 빼고) / 대지면적. 지하층(바닥 레벨<0)은 제외.
+function calcLaw() {
+  const s = doc.site, area = s ? (s.area ?? s.areaCalc ?? null) : null, per = {}; let n = 0;
+  for (const e of doc.ents) if (e.type === 'bldg') { n++; const a = polyAreaM2(e.pts), p = per[e.floor] || (per[e.floor] = { all:0, far:0 }); p.all += a; if (e.kind !== 'excl') p.far += a; }
+  let cover = 0, far = 0;
+  for (const [id, p] of Object.entries(per)) { const lv = lvOf(id); if (lv && lv.el < 0) continue; cover = Math.max(cover, p.all); far += p.far; }
+  const out = { n, per, cover, far, area, violations:[] };
+  if (area) { out.coverPct = cover / area * 100; out.farPct = far / area * 100; }
+  if (s && area && n) {
+    if (s.coverage != null && out.coverPct > s.coverage + 1e-9) out.violations.push(`건폐율 ${out.coverPct.toFixed(2)}% > 한도 ${s.coverage}% (건축면적 ${(cover - area * s.coverage / 100).toFixed(2)}㎡ 초과)`);
+    if (s.floor != null && out.farPct > s.floor + 1e-9) out.violations.push(`용적률 ${out.farPct.toFixed(2)}% > 한도 ${s.floor}% (연면적 ${(far - area * s.floor / 100).toFixed(2)}㎡ 초과)`);
+  }
+  return out;
+}
+function export3D() {
+  const f = e => { const l = lvOf(e.floor); return l ? { floor:e.floor, el0:l.el, el1:+(l.el + l.h).toFixed(3) } : { floor:e.floor || null }; };
+  const out = {
+    _note:'말로 캐드 건축 요소 데이터. 단위 mm, 레벨 m, Y+=북쪽. 3D 생성기는 이 파일만 읽는다. 값이 null이면 모르는 값이다.',
+    exportedAt:new Date().toISOString(), units:'mm', levels:doc.levels, geo:doc.geo || null,
+    site: doc.site ? { addr:doc.site.addr, pnu:doc.site.pnu, area:doc.site.area, uname:doc.site.uname, coverage:doc.site.coverage, floor:doc.site.floor } : null,
+    siteBoundary: siteRings().map(r => r.pts),
+    setbackLines: doc.ents.filter(e => e.tag === 'setbackLine').map(e => [e.x1, e.y1, e.x2, e.y2]),
+    walls: doc.ents.filter(e => e.type === 'wall').map(e => ({ x1:e.x1, y1:e.y1, x2:e.x2, y2:e.y2, t:e.t, kind:e.wk, ...f(e) })),
+    columns: doc.ents.filter(e => e.type === 'column').map(e => ({ cx:e.cx, cy:e.cy, w:e.w ?? null, d:e.d ?? null, r:e.r ?? null, ...f(e) })),
+    doors: doc.ents.filter(e => e.type === 'door').map(e => ({ x:e.x, y:e.y, w:e.w, ang:e.ang, swing:e.swing, h:e.dh ?? null, ...f(e) })),
+    windows: doc.ents.filter(e => e.type === 'window').map(e => ({ x1:e.x1, y1:e.y1, x2:e.x2, y2:e.y2, sill:e.sill, h:e.wh, ...f(e) })),
+    rooms: doc.ents.filter(e => e.type === 'room').map(e => ({ name:e.name || '', pts:e.pts, area_m2:+polyAreaM2(e.pts).toFixed(3), ...f(e) })),
+    buildings: doc.ents.filter(e => e.type === 'bldg').map(e => ({ pts:e.pts, kind:e.kind || 'normal', area_m2:+polyAreaM2(e.pts).toFixed(3), ...f(e) })),
+    equipment: doc.ents.filter(e => e.type === 'equip').map(e => ({ kind:e.kind || 'dispenser', name:e.name || '', cx:e.cx, cy:e.cy, w:e.w, d:e.d, ang:e.ang || 0, h:e.h ?? null, ...f(e) })),
+    slabs: doc.ents.filter(e => e.type === 'slab').map(e => ({ name:e.name || '', pts:e.pts, top_el_m:e.top, thickness_mm:e.t, area_m2:+polyAreaM2(e.pts).toFixed(3) })),
+    law: (({ cover, far, area, coverPct, farPct, violations }) => ({ cover_m2:+cover.toFixed(3), far_m2:+far.toFixed(3), site_m2:area, coverPct, farPct, violations }))(calcLaw())
+  };
+  download(new Blob([JSON.stringify(out, null, 1)], { type:'application/json' }), `elements_${stamp()}.json`);
+  status('3D용 건축 요소 데이터 저장됨');
+}
+$('#b3d').onclick = export3D;
+
+// 정북 일조 이격(건축법 시행령 제86조): 각 층 윗면 높이 H가 규정 기준높이(heightThresholdM) 이하면 distUnderM, 넘으면 H/2 만큼
+// 정북 방향 인접대지경계선(바깥쪽 법선이 북향)에서 안쪽으로 띄운 선을 층마다 그린다. 규정이 확정되지 않았으면(null) 그리지 않는다.
+function insetChord(P, a, b, off, nv) {
+  const A = [a[0] + nv[0] * off, a[1] + nv[1] * off], B = [b[0] + nv[0] * off, b[1] + nv[1] * off], ts = [];
+  for (let k = 0; k < P.length; k++) {
+    const e1 = P[k], e2 = P[(k + 1) % P.length], d = (B[0] - A[0]) * (e2[1] - e1[1]) - (B[1] - A[1]) * (e2[0] - e1[0]);
+    if (Math.abs(d) < 1e-9) continue;
+    const t = ((e1[0] - A[0]) * (e2[1] - e1[1]) - (e1[1] - A[1]) * (e2[0] - e1[0])) / d, u = ((e1[0] - A[0]) * (B[1] - A[1]) - (e1[1] - A[1]) * (B[0] - A[0])) / d;
+    if (u >= -1e-9 && u <= 1 + 1e-9) ts.push(t);
+  }
+  // 평행 이동한 선이 대지 안에서 지나는 구간 중, 그 변 자신의 길이(0~1) 범위만 쓴다 — 비스듬한 짧은 변의 연장선이 대지를 가로지르지 않게
+  const lo = Math.max(Math.max(...ts.filter(t => t <= 0.5), -Infinity), 0), hi = Math.min(Math.min(...ts.filter(t => t >= 0.5), Infinity), 1), at = t => [A[0] + t * (B[0] - A[0]), A[1] + t * (B[1] - A[1])];
+  return [at(lo), at(Math.max(lo, hi))];
+}
+function drawSunlight() {
+  const s = doc.site, rule = s && s.sunlightRule, rings = siteRings();
+  if (!rule) { addMsg('err', '일조 규정이 확정되지 않아 이격선을 그리지 않았습니다. (법규계산기에서 그 지역 조례의 정북 일조 기준이 확정돼 있어야 합니다)'); return; }
+  if (!rings.length) { addMsg('err', '대지 경계가 없어서 그릴 수 없습니다.'); return; }
+  snapshot(); doc.ents = doc.ents.filter(e => e.tag !== 'sunLine' && e.tag !== 'sunNote');
+  const done = new Map(); let lines = 0;
+  for (const lv of doc.levels) {
+    if (lv.el < 0) continue;
+    const H = lv.el + lv.h, d = H <= rule.heightThresholdM ? rule.distUnderM : H / 2;
+    rings.forEach((r, ri) => { const P = r.pts, n = P.length;
+      for (let i = 0; i < n; i++) {
+        const a = P[i], b = P[(i + 1) % n], dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy); if (L < 500) continue;
+        let nv = [-dy / L, dx / L]; const mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+        if (!inPoly([mid[0] + nv[0] * 50, mid[1] + nv[1] * 50], P)) nv = [-nv[0], -nv[1]];   // nv = 안쪽 법선
+        if (-nv[1] < 0.5) continue;                                                           // 바깥 법선이 북쪽(+Y)을 향하는 변만(정북 방향 판단 기준 0.5 — 확인 필요)
+        const key = `${ri}-${i}-${d.toFixed(3)}`;
+        if (done.has(key)) { done.get(key).names.push(lv.name); continue; }
+        const [q1, q2] = insetChord(P, a, b, d * 1000, nv);
+        addEnt({ type:'line', x1:q1[0], y1:q1[1], x2:q2[0], y2:q2[1], layer:'setback', tag:'sunLine', floor:lv.id });
+        done.set(key, { names:[lv.name], d, H, at:[(q1[0] + q2[0]) / 2, (q1[1] + q2[1]) / 2] }); lines++;
+      } });
+  }
+  for (const v of done.values()) addEnt({ type:'text', x:v.at[0], y:v.at[1] + 120, h:Math.max(doc.dimTxt, 100), text:`정북 일조 이격 ${v.d.toFixed(2)}m (${v.names.join('·')}, H≤${v.H.toFixed(2)}m)`, layer:'setback', tag:'sunNote' });
+  save(); draw();
+  addMsg('sys', lines ? `정북 일조 이격선 ${lines}개를 그렸습니다. 기준: 높이 ${rule.heightThresholdM}m 이하 ${rule.distUnderM}m, 초과는 높이의 1/2 (건축법 시행령 제86조). 층 윗면 높이로 계산했고, 정북 방향 변은 바깥 법선이 북쪽에서 약 60° 이내인 변으로 판단했습니다 — 대지 형상이 복잡하면 건축사 확인이 필요합니다.` : '정북 방향으로 향한 대지경계선이 없어 그릴 선이 없습니다.');
+}
+
+/* ---------- 입면도·단면도 자동 생성 ----------
+   평면의 건축 요소(층 레벨, bldg 외곽, wall, window, door, column, slab)에서 프로그램이 계산해서 만든다(AI가 그리지 않음).
+   모든 생성물은 tag 'view…'를 달고 평면 아래쪽에 가로로 나란히 배치되며, 다시 생성하면 전부 교체된다. */
+const VIEW_DEFAULT_SLAB = 150, VIEW_DEFAULT_DOOR_H = 2100;
+function flName(l) { const m = /(\d+)/.exec(l.name || ''); return l.el < 0 ? `B${m ? m[1] : ''}FL` : (m ? m[1] + 'FL' : l.name); }
+const elTxt = mm => `EL${mm >= 0 ? '+' : '-'}${Math.abs(Math.round(mm)).toLocaleString('en-US')}`;
+function baseEnts() { return doc.ents.filter(e => e.tag !== 'sheet' && !String(e.tag || '').startsWith('view')); }
+
+// 한 시점의 도면 요소를 (u, v) 로컬 좌표(mm)로 만든다. u=가로, v=높이(EL mm, GL=0)
+function buildView(kind, param) {
+  const out = [], L = (type, o) => out.push({ type, ...o });
+  const lines = (arr, layer = 'elev') => arr.forEach(q => L('line', { x1:q[0], y1:q[1], x2:q[2], y2:q[3], layer }));
+  const rectU = (u0, v0, u1, v1, layer = 'elev') => L('polyline', { pts:[[u0, v0], [u1, v0], [u1, v1], [u0, v1]], closed:true, layer });
+  const levels = doc.levels.slice().sort((a, b) => a.el - b.el), above = levels.filter(l => l.el >= 0);
+  const bl = {}; baseEnts().filter(e => e.type === 'bldg').forEach(e => (bl[e.floor] = bl[e.floor] || []).push(e));
+  const hasB = above.some(l => bl[l.id]);
+  if (!hasB) return null;
+  const allPts = Object.entries(bl).flatMap(([id, a]) => a.flatMap(e => e.pts));
+  const bW = Math.max(...allPts.map(p => p[0])) - Math.min(...allPts.map(p => p[0])), th = Math.max(150, Math.max(bW, 8000) / 110);
+  let proj, vo, title, cut = null;
+  const notes = [];
+  if (kind === 'elev') {
+    const D = { S:{ vo:[0, -1], f:p => p[0], n:'남측' }, N:{ vo:[0, 1], f:p => -p[0], n:'북측' }, E:{ vo:[1, 0], f:p => p[1], n:'동측' }, W:{ vo:[-1, 0], f:p => -p[1], n:'서측' } }[param];
+    proj = D.f; vo = D.vo; title = `${D.n} 입면도`;
+  } else {
+    // 단면: param.axis 'X' = 평면 y=c 를 자른 단면(북쪽을 봄, u=x), 'Y' = x=c 를 자른 단면(서쪽을 봄, u=y)
+    const xs = allPts.map(p => p[0]), ys = allPts.map(p => p[1]);
+    const c = param.at ?? (param.axis === 'X' ? (Math.min(...ys) + Math.max(...ys)) / 2 : (Math.min(...xs) + Math.max(...xs)) / 2);
+    cut = { axis:param.axis, c }; title = `단면도 (${param.axis === 'X' ? 'Y' : 'X'}=${Math.round(c)} 절단, ${param.axis === 'X' ? '북' : '서'}쪽을 봄)`;
+    proj = param.axis === 'X' ? (p => p[0]) : (p => p[1]);
+  }
+  const pq = p => cut ? (cut.axis === 'X' ? [p[0], p[1]] : [p[1], p[0]]) : null;   // 단면용 (평면내 가로 p, 수직방향 q)
+  let umin = Infinity, umax = -Infinity; const ext = u => { umin = Math.min(umin, u); umax = Math.max(umax, u); };
+  const topAll = Math.max(...above.map(l => (l.el + l.h) * 1000));
+  for (const l of above) {
+    const bs = bl[l.id] || []; if (!bs.length) continue;
+    const v0 = (l === above[0] ? 0 : l.el * 1000), v1 = (l.el + l.h) * 1000;
+    if (kind === 'elev') {
+      const us = bs.flatMap(e => e.pts.map(proj)), a = Math.min(...us), b = Math.max(...us); ext(a); ext(b);
+      lines([[a, v0, a, v1], [b, v0, b, v1], [a, v1, b, v1]]); if (l !== above[0]) lines([[a, v0, b, v0]]);
+    }
+  }
+  const slabT = VIEW_DEFAULT_SLAB;
+  if (kind === 'elev') {
+    // 창·문: 건물 외곽 변 위에 있고 바깥 방향이 시선 쪽을 보는 것만
+    for (const e of baseEnts().filter(e => e.type === 'window' || e.type === 'door')) {
+      const lv = lvOf(e.floor), bs = lv && bl[lv.id]; if (!bs) continue;
+      const P = bs[0].pts, cen = polyCentroid(P);
+      const [x1, y1, x2, y2] = e.type === 'window' ? [e.x1, e.y1, e.x2, e.y2] : [e.x, e.y, e.x + Math.cos((e.ang || 0) * D2R) * (e.w || 900), e.y + Math.sin((e.ang || 0) * D2R) * (e.w || 900)];
+      const m = [(x1 + x2) / 2, (y1 + y2) / 2], len = Math.hypot(x2 - x1, y2 - y1) || 1; let n = [-(y2 - y1) / len, (x2 - x1) / len];
+      if (n[0] * (m[0] - cen[0]) + n[1] * (m[1] - cen[1]) < 0) n = [-n[0], -n[1]];
+      if (n[0] * vo[0] + n[1] * vo[1] < 0.7) continue;
+      let onEdge = false; for (let i = 0; i < P.length; i++) { const a = P[i], b = P[(i + 1) % P.length]; if (segDist(m, a[0], a[1], b[0], b[1]) <= 400) onEdge = true; }
+      if (!onEdge) continue;
+      const ua = proj([x1, y1]), ub = proj([x2, y2]), v0 = lv.el * 1000 + (e.type === 'window' ? (e.sill ?? 900) : 0), v1 = v0 + (e.type === 'window' ? (e.wh ?? 1500) : (e.dh ?? VIEW_DEFAULT_DOOR_H));
+      rectU(Math.min(ua, ub), v0, Math.max(ua, ub), v1);
+      if (e.type === 'door' && e.dh == null) notes.push('문 높이 미입력 → 2100 가정');
+    }
+    // 슬라브(캐노피·지붕): 투영 폭 × 두께
+    for (const e of baseEnts().filter(e => e.type === 'slab')) { const us = e.pts.map(proj), a = Math.min(...us), b = Math.max(...us); ext(a); ext(b); rectU(a, e.top * 1000 - e.t, b, e.top * 1000); }
+    // 기둥
+    for (const e of baseEnts().filter(e => e.type === 'column')) { const lv = lvOf(e.floor); if (!lv) continue; const u = proj([e.cx, e.cy]), hw = (e.r || (e.w || 200) / 2); ext(u - hw); ext(u + hw); rectU(u - hw, lv.el * 1000, u + hw, (lv.el + lv.h) * 1000); }
+  } else {
+    const isX = cut.axis === 'X', c = cut.c;
+    const cutRects = [];
+    // 바닥 슬라브: 각 층 레벨(지상) + 지붕, bldg 외곽을 평면으로 자른 구간
+    const interval = P => { const xs = []; for (let i = 0; i < P.length; i++) { const a = pq(P[i]), b = pq(P[(i + 1) % P.length]); if ((a[1] - c) * (b[1] - c) < 0) xs.push(a[0] + (c - a[1]) / (b[1] - a[1]) * (b[0] - a[0])); } xs.sort((p, q) => p - q); const r = []; for (let i = 0; i + 1 < xs.length; i += 2) r.push([xs[i], xs[i + 1]]); return r; };
+    const ivs = {}; above.forEach(l => { ivs[l.id] = (bl[l.id] || []).flatMap(e => interval(e.pts)); });
+    for (const l of above) for (const [a, b] of ivs[l.id]) { ext(a); ext(b); rectU(a, l.el * 1000 - slabT, b, l.el * 1000, 'sec'); }
+    const topL = [...above].reverse().find(l => (ivs[l.id] || []).length);
+    if (topL) for (const [a, b] of ivs[topL.id]) rectU(a, (topL.el + topL.h) * 1000 - slabT, b, (topL.el + topL.h) * 1000, 'sec');
+    notes.push(`슬라브 두께 ${slabT}mm 가정`);
+    // 벽: 절단 평면과 만나는 벽
+    for (const e of baseEnts().filter(e => e.type === 'wall')) {
+      const lv = lvOf(e.floor); if (!lv || lv.el < 0) continue;
+      const a = pq([e.x1, e.y1]), b = pq([e.x2, e.y2]), t = e.t || 200, len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, dq = (b[1] - a[1]) / len;
+      let seg = null;
+      if (Math.abs(dq) > 0.2) { const k = (c - a[1]) / (b[1] - a[1]); if (k >= 0 && k <= 1) { const x = a[0] + k * (b[0] - a[0]), w = t / Math.abs(dq); seg = [x - w / 2, x + w / 2]; } }
+      else if (Math.abs((a[1] + b[1]) / 2 - c) <= t / 2) seg = [Math.min(a[0], b[0]), Math.max(a[0], b[0])];
+      if (seg) { ext(seg[0]); ext(seg[1]); rectU(seg[0], lv.el * 1000, seg[1], (lv.el + lv.h) * 1000, 'sec'); }
+    }
+    for (const e of baseEnts().filter(e => e.type === 'column')) { const lv = lvOf(e.floor); if (!lv) continue; const p = pq([e.cx, e.cy]), hw = (e.r || (e.d || e.w || 200) / 2); if (Math.abs(p[1] - c) <= hw) { const w2 = e.r || (isX ? (e.w || 200) : (e.d || e.w || 200)) / 2; ext(p[0] - w2); ext(p[0] + w2); rectU(p[0] - w2, lv.el * 1000, p[0] + w2, (lv.el + lv.h) * 1000, 'sec'); } }
+    for (const e of baseEnts().filter(e => e.type === 'slab')) { const iv = interval(e.pts); for (const [a, b] of iv) { ext(a); ext(b); rectU(a, e.top * 1000 - e.t, b, e.top * 1000, 'sec'); } }
+  }
+  if (!isFinite(umin)) return null;
+  // 레벨선·레벨 표기(1FL. EL=+200 형식), GL
+  const lx0 = umin - 5000, lx1 = umax + 2500;
+  L('line', { x1:umin - 3000, y1:0, x2:umax + 3000, y2:0, layer:'elev' });
+  L('text', { x:lx0 - th * 14, y:th * 0.3, h:th, text:'GL±0', layer:'ann' });
+  for (const l of levels) { if (l.el < 0) continue; const v = l.el * 1000;
+    L('line', { x1:lx0, y1:v, x2:lx1, y2:v, layer:'hidden' }); L('text', { x:lx0 - th * 14, y:v + th * 0.3, h:th, text:`${flName(l)}. ${elTxt(v)}`, layer:'ann' }); }
+  const topMm = topAll; L('line', { x1:lx0, y1:topMm, x2:lx1, y2:topMm, layer:'hidden' }); L('text', { x:lx0 - th * 14, y:topMm + th * 0.3, h:th, text:`RFL. ${elTxt(topMm)}`, layer:'ann' });
+  // 치수: 층고(오른쪽)·전체 높이·전체 폭(아래)
+  const dx = umax + 1200; let prev = null;
+  for (const l of levels.filter(l => l.el >= 0)) { const v = l.el * 1000; if (prev != null && v > prev) L('dim', { x1:dx, y1:prev, x2:dx, y2:v, dir:'v', off:0, layer:'dim' }); prev = v; }
+  if (prev != null && topMm > prev) L('dim', { x1:dx, y1:prev, x2:dx, y2:topMm, dir:'v', off:0, layer:'dim' });
+  L('dim', { x1:dx, y1:0, x2:dx, y2:topMm, dir:'v', off:1800, layer:'dim' });
+  L('dim', { x1:umin, y1:0, x2:umax, y2:0, dir:'h', off:-2200, layer:'dim' });
+  L('text', { x:umin, y:-6500, h:th * 1.6, text:title, layer:'ann' });
+  return { ents:out, umin:lx0 - th * 14, umax:umax + 6500, notes:[...new Set(notes)], title, th };
+}
+function genViews() {
+  const base = baseEnts(); if (!base.length) return status('먼저 건물을 그려 주세요');
+  const specs = [['elev', 'S'], ['elev', 'N'], ['elev', 'E'], ['elev', 'W'], ['sec', { axis:'X' }], ['sec', { axis:'Y' }]];
+  const results = specs.map(s => buildView(...s)).filter(Boolean);
+  if (!results.length) { addMsg('err', '입면·단면을 만들려면 지상층마다 건물 외곽(bldg)이 있어야 합니다.'); return; }
+  if (doc.ents.some(e => String(e.tag || '').startsWith('view')) && !confirm('이미 만든 입면·단면을 지우고 다시 만들까요?')) return;
+  snapshot(); doc.ents = base;
+  const b = bounds(base), topMm = Math.max(...doc.levels.filter(l => l.el >= 0).map(l => (l.el + l.h) * 1000));
+  const oy = b[1] - 12000 - topMm; let ox = b[0];
+  const th = Math.max(...results.map(r => r.th)); if (doc.dimTxt < th) doc.dimTxt = Math.round(th);
+  let vi = 0;
+  for (const r of results) { vi++;
+    for (const e of r.ents) { const c = JSON.parse(JSON.stringify(e)); c.tag = 'view' + vi; c.vt = r.title; const sx = ox - r.umin, sy = oy;
+      for (const [a, k] of [['x1', 'y1'], ['x2', 'y2'], ['x', 'y']]) if (a in c) { c[a] += sx; c[k] += sy; }
+      if (c.pts) c.pts = c.pts.map(q => [q[0] + sx, q[1] + sy]); addEnt(c); }
+    ox += (r.umax - r.umin) + 4000;
+  }
+  save(); zoomExtents();
+  const notes = [...new Set(results.flatMap(r => r.notes))];
+  addMsg('sys', `입면도 4면(남·북·동·서)과 단면도 2개를 평면 아래에 만들었습니다.\n- 입면은 층 레벨·건물 외곽·창·문·기둥·슬라브에서 자동 계산, 최하층은 GL까지 연장\n- 단면은 건물 중심을 가로·세로로 자른 위치(필요하면 단면 위치를 말해 주세요)\n` + (notes.length ? '- 가정: ' + notes.join(', ') : '') + '\n※ 외벽 마감·해치·창호 부호는 아직 반영되지 않았습니다.');
+}
+$('#bViews').onclick = genViews;
+/* ---------- 도곽·표제란 (사무실 규격: A3, 모형공간 배치, 도곽폭 = 420mm × 표기축척) ---------- */
+// 도곽 크기·표제란 항목은 서하남 도면(OFFICE-DRAWING-SPEC §6~7)에서 읽은 값. 여백 10mm·띠 폭 55mm는 가정.
+// 사무소 정보·도면번호·프로젝트번호는 도면마다 정해지는 값이라 비워 두고 직접 적는다(없는 값을 만들어 넣지 않음).
+const SHEET_SCALES = [50, 80, 100, 150, 200, 250, 300, 400, 500, 600, 800, 1000];
+function genSheet() {
+  const pre = doc.ents.filter(e => e.tag !== 'sheet');
+  const sets = [];
+  const plan = pre.filter(e => !String(e.tag || '').startsWith('view')), views = pre.filter(e => String(e.tag || '').startsWith('view'));
+  if (plan.length) sets.push({ ents:plan, title:'평면도·배치도' });
+  const vg = new Map();
+  for (const e of views) { if (!vg.has(e.tag)) vg.set(e.tag, []); vg.get(e.tag).push(e); }
+  for (const [tg, ents] of vg) sets.push({ ents, title:String((ents.find(e => e.vt) || {}).vt || '입면도·단면도').split(' (')[0] });
+  if (!sets.length) return status('먼저 도면을 그려 주세요');
+  if (!doc.sheet) {                       // 처음 한 번만 표제란 정보를 묻는다(빈칸 허용 — 없는 값은 만들지 않음)
+    const ask = (q, k) => { const v = prompt(q + ' (비워 두면 빈칸)', ''); doc.sheet[k] = (v || '').trim(); };
+    doc.sheet = {}; ask('사무소명', 'office'); ask('프로젝트 번호', 'projNo'); ask('작성자(DRAWN)', 'drawn'); ask('검토(CHECKED)', 'checked'); ask('승인(APPROVED)', 'approved');
+  }
+  snapshot(); doc.ents = pre;
+  const MG = 10, STRIP = 55, W = 420, H = 297, PAD = 20;
+  const d = new Date(), date = `${d.getFullYear()}. ${String(d.getMonth() + 1).padStart(2, '0')}.`;
+  const proj = (doc.sheet && doc.sheet.project) || (doc.site && doc.site.addr) || '';
+  const out = [];
+  let nextTop = null, leftX = null;          // 첫 시트(평면) 아래로 입면·단면 시트를 위아래로 쌓는다(사무실 방식)
+  for (const [gi, g] of sets.entries()) {
+    let b = bounds(g.ents); const w = b[2] - b[0], h = b[3] - b[1];
+    const N = SHEET_SCALES.find(n => w + 2 * PAD * n <= (W - 2 * MG - STRIP) * n && h + 2 * PAD * n <= (H - 2 * MG) * n) || SHEET_SCALES[SHEET_SCALES.length - 1];
+    const ax0 = MG, ax1 = W - MG - STRIP, cxm = (b[0] + b[2]) / 2, cym = (b[1] + b[3]) / 2;
+    let ox, oy;
+    if (gi === 0) { ox = cxm - ((ax0 + ax1) / 2) * N; oy = cym - (H / 2) * N; leftX = ox; }
+    else {                                    // 이 그룹의 그림을 새 시트 중앙으로 옮긴다
+      ox = leftX; oy = nextTop - H * N;
+      const dx = ox + ((ax0 + ax1) / 2) * N - cxm, dy = oy + (H / 2) * N - cym;
+      for (const c of g.ents) { for (const [a, k] of [['x1', 'y1'], ['x2', 'y2'], ['x', 'y'], ['cx', 'cy']]) if (a in c && typeof c[a] === 'number') { c[a] += dx; c[k] += dy; }
+        if (c.pts) c.pts = c.pts.map(q => [q[0] + dx, q[1] + dy]); }
+    }
+    nextTop = oy - 3 * N;                     // 다음 시트 위쪽 = 이 시트 아래 + 간격
+    const X = v => ox + v * N, Y = v => oy + v * N;
+    const ln = (x1, y1, x2, y2) => addEnt({ type:'line', x1:X(x1), y1:Y(y1), x2:X(x2), y2:Y(y2), layer:'sheet', tag:'sheet' });
+    const box = (x1, y1, x2, y2) => addEnt({ type:'polyline', pts:[[X(x1), Y(y1)], [X(x2), Y(y1)], [X(x2), Y(y2)], [X(x1), Y(y2)]], closed:true, layer:'sheet', tag:'sheet' });
+    const tx = (x, y, t, hh = 2.5) => addEnt({ type:'text', x:X(x), y:Y(y), h:hh * N, text:t, layer:'sheet', tag:'sheet' });
+    box(0, 0, W, H); box(MG, MG, W - MG, H - MG);
+    const sx = W - MG - STRIP;                                                   // 표제란 띠 왼쪽 x
+    ln(sx, MG, sx, H - MG);
+    // 위에서 아래로 칸 분할: 사무소 / 프로젝트 / 도면명 / 도면번호·날짜 / 축척·프로젝트번호 / 작성·검토·승인 / 개정표
+    const rows = [['', 38], ['PROJECT', 30], ['DRAWING TITLE', 30], ['DRAWING NO.', 14], ['DATE', 14], ['SCALE', 14], ['PROJECT NO.', 14], ['DRAWN', 12], ['CHECKED', 12], ['APPROVED', 12]];
+    let y = H - MG; const val = { 'PROJECT':proj, 'DRAWING TITLE':g.title, 'DATE':date, 'SCALE':`A3 : 1/${N}`, 'DRAWN':(doc.sheet && doc.sheet.drawn) || '', 'CHECKED':(doc.sheet && doc.sheet.checked) || '', 'APPROVED':(doc.sheet && doc.sheet.approved) || '', 'DRAWING NO.':(doc.sheet && doc.sheet.drawNo) || '', 'PROJECT NO.':(doc.sheet && doc.sheet.projNo) || '' };
+    for (const [lab, hh] of rows) {
+      y -= hh; if (y < MG + 40) break; ln(sx, y, W - MG, y);
+      if (lab) { tx(sx + 1.5, y + hh - 4, lab, 1.8); const v = val[lab]; if (v) tx(sx + 1.5, y + 3.5, v, lab === 'DRAWING TITLE' ? 3.2 : 2.4); }
+      else { const o = (doc.sheet && doc.sheet.office) || ''; if (o) tx(sx + 1.5, y + hh / 2, o, 2.6); }
+    }
+    // 개정표: NO · DATE · REVISION (남은 띠 아래쪽 4줄)
+    const ry = MG + 28; ln(sx, ry, W - MG, ry); tx(sx + 1.5, ry - 4, 'NO.   DATE   REVISION', 1.8);
+    for (let k = 1; k <= 3; k++) ln(sx, ry - k * 7, W - MG, ry - k * 7);
+    ln(sx + 8, MG, sx + 8, ry); ln(sx + 22, MG, sx + 22, ry);
+    out.push(`${g.title}: A3 1/${N}`);
+  }
+  save(); zoomExtents(); draw();
+  addMsg('sys', '도곽·표제란을 만들었습니다 — ' + out.join(' / ') + '\n- 도곽 크기는 A3(420×297) × 표기 축척, 표제란 항목은 사무실 도면 형식(PROJECT / DRAWING TITLE / DRAWING NO. / DATE / SCALE / PROJECT NO. / DRAWN·CHECKED·APPROVED / 개정표)\n- 사무소명·도면번호·프로젝트번호·작성/검토/승인은 빈칸입니다(실제 사무소 정보는 확인 필요). 처음 한 번 물어본 값이며 doc.sheet에 저장됩니다.\n- 여백 10mm, 표제란 폭 55mm는 가정값입니다.');
+}
+$('#bSheet').onclick = genSheet;
+
+
+function pickRoadEdge(raw) {
+  const rings = siteRings(); if (!rings.length || !doc.site) return false;
+  const tol = 16 / view.s; let best = null;
+  for (const r of rings) for (let i = 0; i < r.pts.length; i++) {
+    const a = r.pts[i], c = r.pts[(i + 1) % r.pts.length], d = segDist(raw, a[0], a[1], c[0], c[1]);
+    if (d < tol && (!best || d < best.d)) best = { r, i, d };
+  }
+  if (!best) return false;
+  const w = doc.site.narrowestRoad && doc.site.narrowestRoad.width;
+  if (w == null || w >= 4) { pickRoadMode = false; renderLawBox(); return true; }
+  const P = best.r.pts, n = P.length, p1 = P[best.i], p2 = P[(best.i + 1) % n], pp = P[(best.i - 1 + n) % n], pn = P[(best.i + 2) % n];
+  const dx = p2[0] - p1[0], dy = p2[1] - p1[1], L = Math.hypot(dx, dy) || 1, mid = [(p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2];
+  let nv = [-dy / L, dx / L];
+  if (!inPoly([mid[0] + nv[0] * 50, mid[1] + nv[1] * 50], P)) nv = [-nv[0], -nv[1]];
+  const off = (4 - w) / 2 * 1000;
+  // 후퇴선 = 그 변을 안쪽으로 평행 이동한 선(대지 안, 변 자신의 길이 범위)
+  const [q1, q2] = insetChord(P, p1, p2, off, nv);
+  snapshot();
+  addEnt({ type:'line', x1:q1[0], y1:q1[1], x2:q2[0], y2:q2[1], layer:'setback', tag:'setbackLine' });
+  addEnt({ type:'text', x:mid[0] + nv[0] * off, y:mid[1] + nv[1] * off, h:Math.max(doc.dimTxt, 100), text:`건축선 후퇴 ${(off / 1000).toFixed(2)}m`, layer:'ann', tag:'siteNote' });
+  doc.site.setbacks = (doc.site.setbacks || []).concat([{ edge:best.i, offsetMm:off }]);
+  pickRoadMode = false; save(); renderLawBox(); status(`건축선 후퇴선을 그렸습니다 (${(off / 1000).toFixed(2)}m)`);
+  return true;
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && pickRoadMode) { pickRoadMode = false; renderLawBox(); } });
+
+function checkHandoff() {
+  renderLawBox();
+  const h = store.get('pb.handoff', null);
+  if (!h || !h.createdAt || store.get('pb.handoff.applied', null) === h.createdAt) return;
+  applyHandoff(h);
+}
+
+/* ---------- init ---------- */
+function welcome() {
+  addMsg('sys', '건축 도면을 말이나 글로 요청하세요. 인허가 브릿지에서 「이 대지에 도면 그리기」로 넘어오면 대지·법규가 먼저 그려집니다. 이어서 "창을 하나 더", "사무실 폭을 4m로" 처럼 고칠 수 있고, 📎로 PDF·사진 도면을 첨부하면 따라 그립니다. 아래 칸의 명령줄에서는 오토캐드 단축키(L, C, REC, DLI…)로 직접 그릴 수 있습니다.');
+  const box = document.createElement('div'); box.className = 'chips';
+  for (const ex of ['대지 안에 가로 25.7m 세로 5.3m 2층 사무동 외곽과 외벽을 그려줘 (1층 층고 3.95m, 2층 3.35m)',
+                    '1층을 사무실·화장실·창고로 나누고 문과 창을 넣어줘',
+                    '2층도 같은 외곽으로 만들고 계단실은 서쪽 끝에 둬줘']) {
+    const b = document.createElement('button'); b.className = 'chip'; b.textContent = ex; b.onclick = () => send(ex); box.appendChild(b);
+  }
+  logEl.appendChild(box);
+}
+buildHelp();
+welcome();
+resize();
+setPrompt();
+renderFloors();
+checkHandoff();
+window.addEventListener('focus', checkHandoff);
+</script>
+</body>
+</html>

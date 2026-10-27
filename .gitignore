@@ -1,0 +1,12 @@
+# 내부 문서·현장 데이터 — 공개 저장소에 올리지 않음 (GitHub Pages 무료는 공개 저장소만 가능)
+보이스캐드_프로젝트_정리.md
+HANDOFF-permit-bridge.md
+OFFICE-DRAWING-SPEC.md
+seohanam_to_schema.py
+*.json
+*.blend
+*.blend1
+*.png
+*.dxf
+*.dwg
+__pycache__/
