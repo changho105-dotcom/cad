@@ -7,4 +7,4 @@
   `blender --background --python gen3d.py -- <elements.json 절대경로> <출력접두어 절대경로>`
 
 배포: GitHub Pages. 인허가 브릿지(`/permit-bridge/`)와 같은 도메인이라 「이 대지에 도면 그리기」 버튼이 `localStorage['pb.handoff']`로 대지·법규 데이터를 넘긴다.
-Claude API 키는 각자 브라우저 설정에 입력하며 저장소에는 없다.
+도면 저장과 AI 호출은 회사 서버 API를 거친다(사내 계정 로그인 필요). Claude API 키는 서버에만 있고 저장소·브라우저에는 없다.

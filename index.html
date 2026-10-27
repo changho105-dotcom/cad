@@ -137,9 +137,7 @@ table.help td:first-child{font-family:Consolas,monospace;color:var(--accent);whi
 
 <dialog id="dlgSet">
   <h2>설정</h2>
-  <label for="sKey">Anthropic API 키</label>
-  <input id="sKey" type="password" placeholder="sk-ant-..." autocomplete="off">
-  <div class="hint">키는 이 브라우저에만 저장되고, 요청은 이 화면에서 Anthropic으로 직접 갑니다. console.anthropic.com 에서 발급받을 수 있습니다.</div>
+  <div class="hint">AI(말로 그리기)는 대벌 서버에 등록된 회사 키로 동작합니다. 대벌 시스템 계정(관리자·현장소장)으로 로그인하면 키 없이 쓸 수 있습니다.</div>
   <label for="sModel">모델</label>
   <select id="sModel">
     <option value="claude-sonnet-5-5">Sonnet 5.5 (빠름·권장)</option>
@@ -205,7 +203,8 @@ const store = {
 
 const DEFAULT_ALIASES = { L:'LINE', PL:'PLINE', C:'CIRCLE', A:'ARC', REC:'RECTANG', E:'ERASE', M:'MOVE', CO:'COPY', CP:'COPY',
   DLI:'DIMLINEAR', DAL:'DIMALIGNED', DDI:'DIMDIAMETER', DRA:'DIMRADIUS', T:'TEXT', DT:'TEXT', Z:'ZOOM', U:'UNDO' };
-const settings = Object.assign({ key:'', model:'claude-sonnet-5-5', autoSend:true, aliases:DEFAULT_ALIASES }, store.get('vc.settings', {}));
+const settings = Object.assign({ model:'claude-sonnet-5-5', autoSend:true, aliases:DEFAULT_ALIASES }, store.get('vc.settings', {}));
+if ('key' in settings) { delete settings.key; store.set('vc.settings', settings); } // 예전에 브라우저에 넣었던 API 키는 지움 (이제 서버 키 사용)
 const doc = Object.assign({ ents:[], nextId:1, dimTxt:5 }, store.get('vc.doc', {}));
 
 const LAYERS = {
@@ -1052,7 +1051,10 @@ async function send(textArg, retry = 0) {
   const text = (textArg ?? qEl.value).trim();
   let followUp = null;
   if (busy || (!text && !attachment)) return;
-  if (!settings.key) { addMsg('err', '먼저 ⚙ 설정에서 Anthropic API 키를 넣어 주세요.'); openSettings(); return; }
+  if (!srv) {
+    try { srv = await srvLogin(); }
+    catch { addMsg('err', 'AI로 그리려면 대벌 시스템 계정으로 로그인해야 합니다.'); return; }
+  }
   busy = true; $('#send').disabled = true;
   const att = attachment; attachment = null; $('#attachName').textContent = '';
   qEl.value = '';
@@ -1079,15 +1081,11 @@ async function send(textArg, retry = 0) {
     messages: [...hist.slice(-8), { role:'user', content }]
   };
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'content-type':'application/json', 'x-api-key':settings.key, 'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true' },
-      body: JSON.stringify(body)
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      const m = data.error && data.error.message || res.statusText;
-      throw new Error(res.status === 401 ? 'API 키가 올바르지 않습니다. 설정에서 확인해 주세요.' : `API 오류 (${res.status}): ${m}`);
+    // 대벌 서버(cad_api.php?action=ai)가 회사 키로 Anthropic에 대신 요청 — 기다리는 동안 서버가 공백을 보내 연결 유지
+    const data = await srvCall('ai', { body });
+    if (data.type === 'error' || data.status !== 200) {
+      const code = data.proxy_status || data.status;
+      throw new Error(`AI 오류 (${code}): ${data.error && data.error.message || '응답을 받지 못했습니다'}`);
     }
     const tu = (data.content || []).find(b => b.type === 'tool_use');
     if (!tu) throw new Error('도면 응답을 받지 못했습니다.');
@@ -1106,7 +1104,7 @@ async function send(textArg, retry = 0) {
     }
   } catch (err) {
     clearInterval(timer); pending.remove();
-    addMsg('err', err.message === 'Failed to fetch' ? '네트워크 오류로 요청하지 못했습니다. 인터넷 연결을 확인해 주세요.' : err.message);
+    addMsg('err', err.message === 'cancel' ? 'AI로 그리려면 대벌 시스템 계정으로 로그인해야 합니다.' : err.message);
   } finally {
     busy = false; $('#send').disabled = false;
   }
@@ -1156,7 +1154,7 @@ $('#mic').onclick = toggleMic;
 const dlgSet = $('#dlgSet');
 const aliasText = a => Object.entries(a).map(([k, v]) => `${k}=${v}`).join('\n');
 function openSettings() {
-  $('#sKey').value = settings.key; $('#sModel').value = settings.model; $('#sAuto').checked = settings.autoSend;
+  $('#sModel').value = settings.model; $('#sAuto').checked = settings.autoSend;
   $('#sAlias').value = aliasText(settings.aliases); dlgSet.showModal();
 }
 $('#bSet').onclick = openSettings;
@@ -1169,7 +1167,7 @@ $('#sSave').onclick = () => {
     if (m && CMDS[m[2].toUpperCase()]) al[m[1].toUpperCase()] = m[2].toUpperCase(); else bad.push(ln.trim());
   }
   if (bad.length) { alert('이해하지 못한 줄:\n' + bad.join('\n')); return; }
-  settings.key = $('#sKey').value.trim(); settings.model = $('#sModel').value; settings.autoSend = $('#sAuto').checked; settings.aliases = al;
+  settings.model = $('#sModel').value; settings.autoSend = $('#sAuto').checked; settings.aliases = al;
   store.set('vc.settings', settings); dlgSet.close(); buildHelp(); status('설정 저장됨');
 };
 function buildHelp() {
