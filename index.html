@@ -17,6 +17,17 @@ button.primary{background:var(--accent2);border-color:var(--accent2)}
 button.on{background:#264a6e;border-color:var(--accent)}
 button:disabled{opacity:.5;cursor:default}
 .spacer{flex:1}
+#srvTitle{color:var(--muted);font-size:12.5px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#srvTitle:empty{display:none}
+#srvList{max-height:50vh;overflow:auto;margin-top:10px;border:1px solid var(--line);border-radius:6px}
+#srvList .row{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--line)}
+#srvList .row:last-child{border-bottom:0}
+#srvList .row.cur{background:#1f3347}
+#srvList .ttl{flex:1;min-width:0}
+#srvList .ttl b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#srvList .ttl small{color:var(--muted)}
+#srvList .empty{padding:14px;color:var(--muted);text-align:center}
+.err{color:#ff7b72;font-size:13px;margin-top:8px;min-height:1em}
 main{flex:1;display:flex;min-height:0}
 #stage{flex:1;position:relative;min-width:0;display:flex;flex-direction:column}
 #cv{flex:1;display:block;width:100%;min-height:0;cursor:crosshair;touch-action:none;background:#0f1215}
@@ -75,7 +86,10 @@ table.help td:first-child{font-family:Consolas,monospace;color:var(--accent);whi
 <body>
 <header>
   <h1>🎙️ 말로 캐드</h1>
+  <span id="srvTitle" title="서버에 저장된 도면 이름"></span>
   <button id="bNew">새 도면</button>
+  <button id="bSrvSave" class="primary" title="대벌 서버에 이 도면을 저장합니다 (대벌 시스템 계정으로 로그인)">서버 저장</button>
+  <button id="bSrvOpen" title="대벌 서버에 저장된 도면 목록을 열어 불러옵니다">서버 도면</button>
   <button id="bUndo" title="U / Ctrl+Z">↶ 실행취소</button>
   <button id="bRedo" title="Ctrl+Y">↷ 다시실행</button>
   <button id="bZoom" title="Z / 휠 더블클릭">전체보기</button>
@@ -140,6 +154,33 @@ table.help td:first-child{font-family:Consolas,monospace;color:var(--accent);whi
     <button id="sReset">단축키 초기화</button>
     <button id="sCancel">취소</button>
     <button id="sSave" class="primary">저장</button>
+  </div>
+</dialog>
+
+<dialog id="dlgLogin">
+  <h2>대벌 서버 로그인</h2>
+  <div class="hint">대벌건설 통합관리 시스템 계정(관리자·현장소장)으로 로그인합니다. 비밀번호는 저장하지 않고, 이 브라우저에 30일 동안 로그인 상태만 남습니다.</div>
+  <form id="loginForm" method="dialog">
+    <label for="lUser">아이디</label>
+    <input id="lUser" type="text" autocomplete="username" placeholder="예) changho 또는 김창호">
+    <label for="lPw">비밀번호</label>
+    <input id="lPw" type="password" autocomplete="current-password">
+    <div class="err" id="lErr"></div>
+    <div class="btns">
+      <button type="button" id="lCancel">취소</button>
+      <button type="submit" id="lOk" class="primary">로그인</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlgSrv">
+  <h2>서버 도면</h2>
+  <div class="hint"><span id="srvWho"></span> · <a href="#" id="srvLogout" style="color:var(--accent)">로그아웃</a></div>
+  <div id="srvList"></div>
+  <div class="err" id="srvErr"></div>
+  <div class="btns">
+    <button id="srvSaveAs" title="지금 도면을 새 이름으로 하나 더 저장합니다">새 이름으로 저장</button>
+    <button id="srvClose" class="primary">닫기</button>
   </div>
 </dialog>
 
@@ -751,7 +792,7 @@ $('#bRedo').onclick = redo;
 $('#bZoom').onclick = zoomExtents;
 $('#bNew').onclick = () => {
   if (doc.ents.length && !confirm('지금 도면을 지우고 새로 시작할까요? (실행취소로 되돌릴 수 있습니다)')) return;
-  snapshot(); doc.ents = []; sel.clear(); hist.length = 0; save(); endCmd(); zoomExtents();
+  snapshot(); doc.ents = []; delete doc.server; sel.clear(); hist.length = 0; save(); endCmd(); zoomExtents(); showSrvTitle();
 };
 window.addEventListener('resize', resize);
 
@@ -1555,6 +1596,132 @@ function checkHandoff() {
   applyHandoff(h);
 }
 
+/* ---------- 대벌 서버 저장 (cad_api.php, 2026-10-27) ----------
+   로그인은 대벌 시스템 계정, 비밀번호는 저장하지 않고 서버가 준 토큰만 localStorage('vc.server')에 보관.
+   doc.server = { id, title, base } — base는 서버의 마지막 저장 시각(다른 사람이 그 사이 저장했는지 확인용). */
+const SRV_API = 'https://kidsem.or.kr/cad_api.php';
+let srv = store.get('vc.server', null);
+let srvSaved = null; // 마지막으로 서버와 맞춘 도면 내용(JSON) — 저장 안 한 변경 확인용
+const docData = () => { const d = Object.assign({}, doc); delete d.server; return d; };
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+function showSrvTitle() { $('#srvTitle').textContent = doc.server ? '☁ ' + doc.server.title : ''; }
+
+async function srvCall(action, { body, id } = {}) {
+  if (!srv) srv = await srvLogin();
+  const url = SRV_API + '?action=' + action + (id ? '&id=' + encodeURIComponent(id) : '');
+  let res;
+  try {
+    res = await fetch(url, { method: body ? 'POST' : 'GET', headers: Object.assign({ 'X-Cad-Token': srv.token }, body ? { 'Content-Type': 'application/json' } : {}), body: body ? JSON.stringify(body) : undefined });
+  } catch (e) { throw new Error('서버에 연결하지 못했습니다. 인터넷 연결을 확인하세요.'); }
+  const j = await res.json().catch(() => ({ error: '서버 응답을 읽지 못했습니다' }));
+  if (res.status === 401 && j.login) { srv = null; store.set('vc.server', null); return srvCall(action, { body, id }); }
+  return { status: res.status, ...j };
+}
+
+const dlgLogin = $('#dlgLogin');
+function srvLogin() {
+  return new Promise((resolve, reject) => {
+    $('#lErr').textContent = ''; $('#lPw').value = ''; dlgLogin.showModal(); $('#lUser').focus();
+    const done = (err, v) => { $('#loginForm').onsubmit = null; $('#lCancel').onclick = null; dlgLogin.onclose = null; dlgLogin.close(); err ? reject(err) : resolve(v); };
+    $('#lCancel').onclick = () => done(new Error('cancel'));
+    dlgLogin.onclose = () => reject(new Error('cancel'));
+    $('#loginForm').onsubmit = async ev => {
+      ev.preventDefault();
+      $('#lOk').disabled = true; $('#lErr').textContent = '';
+      try {
+        const res = await fetch(SRV_API + '?action=login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: $('#lUser').value, password: $('#lPw').value }) });
+        const j = await res.json().catch(() => ({ error: '서버 응답을 읽지 못했습니다' }));
+        if (!res.ok || !j.token) { $('#lErr').textContent = j.error || '로그인하지 못했습니다'; return; }
+        const s = { token: j.token, name: j.name }; store.set('vc.server', s); $('#lPw').value = '';
+        done(null, s);
+      } catch (e) { $('#lErr').textContent = '서버에 연결하지 못했습니다. 인터넷 연결을 확인하세요.'; }
+      finally { $('#lOk').disabled = false; }
+    };
+  });
+}
+
+async function srvSave(asNew) {
+  let title = doc.server && !asNew ? doc.server.title : null;
+  if (!title) {
+    const def = (asNew && doc.server ? doc.server.title + ' (사본)' : '') || (doc.site && doc.site.addr) || '도면 ' + new Date().toLocaleDateString('ko-KR');
+    title = prompt('서버에 저장할 도면 이름', def);
+    if (!title || !title.trim()) return false;
+    title = title.trim();
+  }
+  const body = { title, data: docData() };
+  if (doc.server && !asNew) { body.id = doc.server.id; body.base = doc.server.base; }
+  try {
+    status('서버에 저장 중…');
+    let r = await srvCall('save', { body });
+    if (r.status === 409) {
+      if (!confirm(`${r.updated_name}님이 ${r.updated_at}에 이 도면을 서버에 저장했습니다.\n지금 도면으로 덮어쓸까요? (덮어쓰기 전 내용은 서버에 보관됩니다)\n\n취소하면 저장하지 않습니다.`)) { status('저장하지 않았습니다'); return false; }
+      body.force = 1; r = await srvCall('save', { body });
+    }
+    if (r.status === 404 && r.gone) { delete doc.server; save(); showSrvTitle(); alert(r.error); return srvSave(true); }
+    if (!r.ok) throw new Error(r.error || '저장하지 못했습니다');
+    doc.server = { id: r.item.id, title: r.item.title, base: r.item.updated_at };
+    save(); srvSaved = JSON.stringify(docData()); showSrvTitle();
+    status(`서버에 저장했습니다: ${r.item.title}`);
+    return true;
+  } catch (e) {
+    if (e.message !== 'cancel') { status('서버 저장 실패'); alert(e.message); }
+    return false;
+  }
+}
+
+async function srvLoad(id) {
+  const dirty = doc.ents.length && JSON.stringify(docData()) !== srvSaved;
+  if (dirty && !confirm('지금 화면의 도면은 바뀝니다. 서버에 저장하지 않은 내용은 사라집니다. 불러올까요?')) return;
+  const r = await srvCall('get', { id });
+  if (!r.ok) throw new Error(r.error || '불러오지 못했습니다');
+  for (const k of Object.keys(doc)) delete doc[k];
+  Object.assign(doc, { ents: [], nextId: 1, dimTxt: 5 }, r.item.data);
+  if (!Array.isArray(doc.levels) || !doc.levels.length) doc.levels = [{ id:'1', name:'1층', el:0, h:3.0 }];
+  if (!doc.levels.some(l => l.id === doc.cur)) doc.cur = doc.levels[0].id;
+  doc.server = { id: r.item.id, title: r.item.title, base: r.item.updated_at };
+  undoStack = []; redoStack = []; sel.clear(); hist.length = 0;
+  save(); srvSaved = JSON.stringify(docData());
+  endCmd(); renderFloors(); renderLawBox(); zoomExtents(); showSrvTitle();
+  addMsg('sys', `서버 도면 「${r.item.title}」을 불러왔습니다 (${r.item.updated_name} · ${r.item.updated_at} 저장).`);
+}
+
+const dlgSrv = $('#dlgSrv');
+async function srvOpenList() {
+  try {
+    const r = await srvCall('list');
+    if (!r.ok) throw new Error(r.error || '목록을 불러오지 못했습니다');
+    $('#srvWho').textContent = (srv ? srv.name : '') + ' 님 로그인됨';
+    $('#srvErr').textContent = '';
+    const box = $('#srvList');
+    box.innerHTML = r.items.length ? '' : '<div class="empty">서버에 저장된 도면이 없습니다. 「서버 저장」으로 지금 도면을 저장하세요.</div>';
+    for (const it of r.items) {
+      const row = document.createElement('div'); row.className = 'row' + (doc.server && doc.server.id === +it.id ? ' cur' : '');
+      row.innerHTML = `<div class="ttl"><b>${esc(it.title)}</b><small>${esc(it.updated_name)} · ${esc(it.updated_at.slice(0, 16))}${doc.server && doc.server.id === +it.id ? ' · 지금 화면' : ''}</small></div>`;
+      const bo = document.createElement('button'); bo.textContent = '열기'; bo.className = 'primary';
+      bo.onclick = async () => { try { await srvLoad(it.id); dlgSrv.close(); } catch (e) { $('#srvErr').textContent = e.message; } };
+      const bd = document.createElement('button'); bd.textContent = '삭제';
+      bd.onclick = async () => {
+        if (!confirm(`「${it.title}」을 서버 목록에서 삭제할까요?`)) return;
+        const d = await srvCall('delete', { body: { id: it.id } });
+        if (!d.ok) { $('#srvErr').textContent = d.error || '삭제하지 못했습니다'; return; }
+        if (doc.server && doc.server.id === +it.id) { delete doc.server; save(); showSrvTitle(); }
+        srvOpenList();
+      };
+      row.append(bo, bd); box.appendChild(row);
+    }
+    if (!dlgSrv.open) dlgSrv.showModal();
+  } catch (e) { if (e.message !== 'cancel') alert(e.message); }
+}
+$('#bSrvSave').onclick = () => srvSave(false);
+$('#bSrvOpen').onclick = srvOpenList;
+$('#srvSaveAs').onclick = async () => { if (await srvSave(true)) srvOpenList(); };
+$('#srvClose').onclick = () => dlgSrv.close();
+$('#srvLogout').onclick = async ev => {
+  ev.preventDefault();
+  if (srv) { try { await fetch(SRV_API + '?action=logout', { method: 'POST', headers: { 'X-Cad-Token': srv.token } }); } catch {} }
+  srv = null; store.set('vc.server', null); dlgSrv.close(); status('서버에서 로그아웃했습니다');
+};
+
 /* ---------- init ---------- */
 function welcome() {
   addMsg('sys', '건축 도면을 말이나 글로 요청하세요. 인허가 브릿지에서 「이 대지에 도면 그리기」로 넘어오면 대지·법규가 먼저 그려집니다. 이어서 "창을 하나 더", "사무실 폭을 4m로" 처럼 고칠 수 있고, 📎로 PDF·사진 도면을 첨부하면 따라 그립니다. 아래 칸의 명령줄에서는 오토캐드 단축키(L, C, REC, DLI…)로 직접 그릴 수 있습니다.');
@@ -1571,6 +1738,7 @@ welcome();
 resize();
 setPrompt();
 renderFloors();
+showSrvTitle();
 checkHandoff();
 window.addEventListener('focus', checkHandoff);
 </script>
