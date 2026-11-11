@@ -471,6 +471,7 @@ function hitDist(e, p) {
     case 'text': { const r = (e.rot || 0) * D2R, w = textW(e.text, e.h), cx = e.x + Math.cos(r) * w / 2 - Math.sin(r) * e.h / 2, cy = e.y + Math.sin(r) * w / 2 + Math.cos(r) * e.h / 2;
       return Math.max(0, Math.hypot(p[0] - cx, p[1] - cy) - Math.max(w, e.h) / 2); }
     default: if (isDim(e)) return Math.min(...dimGeom(e).lines.map(l => segDist(p, ...l)));
+      { const pr = typeof extPrims === 'function' && extPrims(e); if (pr) return primsDist(pr, p); }
   }
   return Infinity;
 }
@@ -491,6 +492,7 @@ function snapPts(e) {
     case 'window': return [[e.x1, e.y1, '끝점'], [e.x2, e.y2, '끝점'], [(e.x1 + e.x2) / 2, (e.y1 + e.y2) / 2, '중간점']];
     case 'column': case 'equip': return [[e.cx, e.cy, '중심']];
     case 'door': return [[e.x, e.y, '경첩']];
+    default: if (typeof extSnaps === 'function') return extSnaps(e);
   }
   return [];
 }
@@ -519,6 +521,7 @@ function bounds(ents) {
     else if (e.type === 'door') { add(e.x, e.y); const g = doorGeom(e); g.arc.forEach(q => add(q[0], q[1])); }
     else if (e.type === 'text') { add(e.x, e.y); add(e.x + textW(e.text, e.h), e.y + e.h); }
     else if (isDim(e)) { const g = dimGeom(e); g.lines.forEach(l => { add(l[0], l[1]); add(l[2], l[3]); }); g.texts.forEach(t => add(t.x, t.y + t.h)); }
+    else { const pr = typeof extPrims === 'function' && extPrims(e); if (pr) primsBounds(pr, add); }
   }
   return x0 === Infinity ? null : [x0, y0, x1, y1];
 }
@@ -608,6 +611,7 @@ function drawEnt(e, color, dash, width) {
         g.texts.forEach(t => drawText(t, color));
         return;
       }
+      { const pr = typeof extPrims === 'function' && extPrims(e); if (pr) { drawPrims(pr, color, dash || L.dash, width); return; } } // cad-cmds.js 확장 도형
   }
   ctx.stroke();
 }
@@ -616,7 +620,7 @@ function draw() {
   ctx.clearRect(0, 0, W, H);
   if (doc.pdfLayers) ensurePdfLayers(); // 서버에서 불러온 도면의 PDF 레이어 색 복원
   if (gridOn) drawGrid(W, H);
-  for (const e of doc.ents) { ctx.globalAlpha = (e.floor && e.floor !== doc.cur) ? 0.2 : 1; drawEnt(e); }
+  for (const e of doc.ents) { if (typeof layerOff === 'function' && layerOff(e)) continue; ctx.globalAlpha = (e.floor && e.floor !== doc.cur) ? 0.2 : 1; drawEnt(e); }
   ctx.globalAlpha = 1;
   for (const id of sel) { const e = findEnt(id); if (e) drawEnt(e, '#4aa3ff', [6, 4], 2); }
   if (selBox) { // 왼→오 = 완전히 포함(파랑 실선), 오→왼 = 걸침(초록 점선)
@@ -1032,7 +1036,7 @@ function exportDXF() {
           d.lines.forEach(q => line(...q, l));
           d.tris.forEach(t => { head('SOLID', l); g(10, t[0][0]); g(20, t[0][1]); g(30, 0); g(11, t[1][0]); g(21, t[1][1]); g(31, 0); g(12, t[2][0]); g(22, t[2][1]); g(32, 0); g(13, t[2][0]); g(23, t[2][1]); g(33, 0); });
           d.texts.forEach(t => text(t.x, t.y, t.h, t.text, t.rot / D2R, l, true));
-        }
+        } else { const pr = typeof extPrims === 'function' && extPrims(e); if (pr) dxfPrims(pr, { g, head, line, text, poly }, l); }
     }
   }
   g(0, 'ENDSEC'); g(0, 'EOF');
@@ -1155,6 +1159,7 @@ const REQ = { line:['x1', 'y1', 'x2', 'y2'], circle:['cx', 'cy', 'r'], arc:['cx'
 const NUM_KEYS = ['x1', 'y1', 'x2', 'y2', 'cx', 'cy', 'r', 'a1', 'a2', 'x', 'y', 'w', 'h', 'rot', 'off', 'ang', 't', 'd', 'sill', 'wh', 'dh', 'top'];
 const AUTO_LAYER = { wall:'wall', column:'col', door:'open', window:'open', room:'room', bldg:'area', slab:'slab', equip:'equip' };
 function sanitize(a) {
+  if (a && typeof extSanitize === 'function') { const x = extSanitize(a); if (x !== undefined) return x; } // cad-cmds.js 확장 도형
   if (!a || !REQ[a.type]) return null;
   const e = { type:a.type, layer:LAYERS[a.layer] ? a.layer : '0' };
   for (const k of NUM_KEYS) if (a[k] != null && Number.isFinite(+a[k])) e[k] = +a[k];
@@ -1210,7 +1215,9 @@ function applyAI(inp, opts = {}) {
     const merged = sanitize({ ...e, ...m, type:e.type });
     if (merged) { Object.keys(e).forEach(k => { if (k !== 'id') delete e[k]; }); Object.assign(e, merged); changed++; }
   }
-  for (const a of inp.add || []) { const e = sanitize(a); if (e) { addEnt(e); added++; } }
+  const refs = {}; // AI가 add에 붙인 ref 이름 → 새 id (같은 응답의 ops에서 씀)
+  for (const a of inp.add || []) { const e = sanitize(a); if (e) { addEnt(e); added++; if (a.ref) refs[String(a.ref)] = e.id; } }
+  const opsR = (inp.ops || []).length && typeof runOps === 'function' ? runOps(inp.ops, refs, opts) : null;
   if (oldBox && added) { // 새로 그린 것이 기존 도면과 겹치면 기존 도면 오른쪽 빈 곳으로 옮김
     const fresh = doc.ents.slice(firstNew), nb = bounds(fresh);
     if (nb && nb[0] < oldBox[2] && nb[2] > oldBox[0] && nb[1] < oldBox[3] && nb[3] > oldBox[1]) {
@@ -1220,7 +1227,7 @@ function applyAI(inp, opts = {}) {
   }
   save();
   if (inp.clear || wasEmpty || oldBox) zoomExtents(); else draw();
-  return { added, changed, removed:rm.size, ignored };
+  return { added, changed, removed:rm.size, ignored:ignored + (opsR ? opsR.skipped : 0), ops:opsR };
 }
 const round3 = (k, v) => typeof v === 'number' ? Math.round(v * 1000) / 1000 : v;
 
@@ -1245,7 +1252,7 @@ async function send(textArg, retry = 0, opts = {}) {
     dimTxt:doc.dimTxt, levels:doc.levels, cur:doc.cur,
     site: doc.site ? { addr:doc.site.addr, area:doc.site.area ?? doc.site.areaCalc, uname:doc.site.uname, 건폐율한도:doc.site.coverage, 용적률한도:doc.site.floor, 접한도로:doc.site.narrowestRoad, 후퇴선:doc.site.setbacks } : null,
     현재법규계산: doc.site ? { 건축면적:+lawNow.cover.toFixed(2), 연면적:+lawNow.far.toFixed(2), 건폐율:lawNow.coverPct == null ? null : +lawNow.coverPct.toFixed(2), 용적률:lawNow.farPct == null ? null : +lawNow.farPct.toFixed(2) } : null,
-    ents:doc.ents }, round3);
+    blocks:Object.keys(doc.blocks || {}), ents:doc.ents }, round3); // blocks: INSERT에 쓸 수 있는 블록 이름
   const content = [];
   if (att) content.push(att.kind === 'pdf'
     ? { type:'document', source:{ type:'base64', media_type:'application/pdf', data:att.data } }
@@ -1259,7 +1266,7 @@ async function send(textArg, retry = 0, opts = {}) {
   }
   content.push({ type:'text', text:`현재 도면:\n${state}\n\n요청: ${userText}${rule}` });
   const body = {
-    model: settings.model, max_tokens: 16000, system: SYS,
+    model: settings.model, max_tokens: 16000, system: SYS + (typeof SYS_EXTRA === 'string' ? SYS_EXTRA : ''),
     // Sonnet 5.5는 tool_choice "tool"/"any"(도구 강제)를 받지 않음(400) — auto로 두고 SYS에서 반드시 쓰라고 지시
     tools: [TOOL], tool_choice: { type:'auto' },
     messages: [...hist.slice(-8), { role:'user', content }]
@@ -1298,7 +1305,8 @@ async function send(textArg, retry = 0, opts = {}) {
     const sec = ((performance.now() - t0) / 1000).toFixed(1);
     clearInterval(timer); pending.remove();
     const msg = tu.input.message || '완료했습니다.';
-    addMsg('ai', msg, `${sec}초 · 추가 ${r.added} · 수정 ${r.changed} · 삭제 ${r.removed}` + (r.ignored ? ` · 기존 도면 보호로 무시한 수정·삭제 ${r.ignored}` : ''));
+    addMsg('ai', msg, `${sec}초 · 추가 ${r.added} · 수정 ${r.changed} · 삭제 ${r.removed}` + (r.ops ? ` · 명령 ${r.ops.done}` : '') + (r.ignored ? ` · 기존 도면 보호로 무시한 수정·삭제 ${r.ignored}` : ''));
+    if (r.ops && r.ops.errors.length) addMsg('err', '실행하지 못한 명령: ' + r.ops.errors.join(' / '));
     hist.push({ role:'user', content:(att ? `[첨부: ${att.name}] ` : '') + userText }, { role:'assistant', content:msg });
     // 법규 자동 재계산: 한도를 넘으면 그 결과를 AI에게 돌려줘서 스스로 고치게 함(최대 2회). 따라 그리기(참고 도면 추가)는 제외
     const lw = calcLaw();
@@ -1388,7 +1396,7 @@ $('#hClose').onclick = () => $('#dlgHelp').close();
 const TYPE_KO = { line:'선', polyline:'폴리선', circle:'원', arc:'호', rect:'사각형', text:'문자', dim:'치수', dimdia:'지름 치수', dimrad:'반지름 치수',
   wall:'벽', column:'기둥', door:'문', window:'창', room:'실', bldg:'건물 외곽', slab:'슬라브', equip:'설비' };
 const m2 = mm2 => mm2 / 1e6, PY = 3.305785;
-const visible = e => !e.floor || e.floor === doc.cur;
+const visible = e => (!e.floor || e.floor === doc.cur) && !(typeof layerBlocked === 'function' && layerBlocked(e)); // 꺼지거나 잠긴 레이어는 선택 안 됨
 function info(text) { // 조회 결과는 명령 기록창과 AI 창 기록에 같이 남김
   addMsg('sys', text); cmdLog(text);
   promptEl.textContent = text.split('\n')[0]; clearTimeout(statusTimer); statusTimer = setTimeout(setPrompt, 4000);
@@ -1461,6 +1469,7 @@ function xformEnt(e, f, o) {
   if (e.type === 'door' && mir) e.swing = e.swing === -1 ? 1 : -1;
   if (e.type === 'text' && !mir) e.rot = (e.rot || 0) + (o.rot || 0);
   if (e.type === 'column' && !e.r && o.rot && Math.abs(norm360(o.rot) % 180 - 90) < 1e-6) { const w = e.w || 200; e.w = e.d || w; e.d = w; }
+  if (typeof extXform === 'function') extXform(e, f, o);
 }
 const rotF = (b, deg) => { const c = Math.cos(deg * D2R), s = Math.sin(deg * D2R); return p => [b[0] + (p[0] - b[0]) * c - (p[1] - b[1]) * s, b[1] + (p[0] - b[0]) * s + (p[1] - b[1]) * c]; };
 const mirF = (p1, deg) => { const c = Math.cos(2 * deg * D2R), s = Math.sin(2 * deg * D2R); return p => { const dx = p[0] - p1[0], dy = p[1] - p1[1]; return [p1[0] + dx * c + dy * s, p1[1] + dx * s - dy * c]; }; };
@@ -2567,5 +2576,6 @@ showSrvTitle();
 checkHandoff();
 window.addEventListener('focus', checkHandoff);
 </script>
+<script src="cad-cmds.js"></script>
 </body>
 </html>
