@@ -2483,5 +2483,345 @@ Object.assign(CMD_DESC, { TEXTEDIT:'문자·치수 글자 고치기 (더블클�
 }
 buildToolbars(); buildMenus(); buildHelp();
 ensureUserLayers();
+/* ---------- 리본 화면 배치 (CAD식: 빠른 실행 · 리본 탭/패널 · 도면 탭 · 방위 표시 · 떠 있는 명령줄 · 모형/층 탭) ----------
+   배치 관례만 따르고 아이콘·디자인은 직접 그림. 예전 도구막대(#toolbar·#tbDraw·#tbModify)는 숨겨 두고 그대로 둠(버튼 동작 재사용). */
+(() => {
+  Object.assign(ICONS, {
+    point:'<circle cx="12" cy="12" r="2.2" fill="currentColor"/><path d="M12 4v4M12 16v4M4 12h4M16 12h4"/>',
+    donut:'<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/>',
+    revcloud:'<path d="M6 16a3 3 0 0 1 0-6 4 4 0 0 1 7-3 3.5 3.5 0 0 1 5 3 3 3 0 0 1 0 6z"/>',
+    ray:'<path d="M4 18 20 6"/><circle cx="4" cy="18" r="1.6" fill="currentColor"/>',
+    brush:'<path d="M14 4l6 6-7 7-6-6z"/><path d="M7 11l-3 3c-1 1-1 4-1 6 2 0 5 0 6-1l3-3"/>',
+    paste:'<rect x="5" y="5" width="14" height="16" rx="1"/><path d="M9 5V3h6v2M8 11h8M8 15h6"/>',
+    cut:'<circle cx="7" cy="17" r="3"/><circle cx="17" cy="17" r="3"/><path d="M9 15 18 3M15 15 6 3"/>',
+    group:'<rect x="3" y="3" width="18" height="18" stroke-dasharray="3 2"/><rect x="6" y="6" width="5" height="5"/><circle cx="15.5" cy="15.5" r="3"/>',
+    ungroup:'<rect x="5" y="5" width="6" height="6"/><circle cx="16" cy="16" r="3.5"/><path d="M3 21 21 3" stroke-dasharray="2 2"/>',
+    xref:'<path d="M6 3h8l4 4v14H6z"/><path d="M9 13h6M12 10l3 3-3 3"/>',
+    purge:'<path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"/>',
+    layoff:'<path d="m12 3 9 5-9 5-9-5z"/><path d="M4 20 20 4"/>',
+    layon:'<path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/><path d="m3 17.5 9 5 9-5"/>',
+    layiso:'<path d="m12 3 9 5-9 5-9-5z" fill="currentColor" fill-opacity=".35"/><path d="m3 13 9 5 9-5" stroke-dasharray="2 2"/>',
+    laycur:'<path d="m12 3 9 5-9 5-9-5z"/><path d="m8 16 3 3 6-6"/>',
+    find:'<circle cx="10" cy="10" r="6"/><path d="m15 15 6 6M7.5 10h5"/>',
+    qsel:'<path d="M4 4l7 16 2-7 7-2z"/>',
+    sim:'<rect x="3" y="6" width="8" height="8"/><rect x="13" y="10" width="8" height="8"/><path d="M11 10h2"/>',
+    order:'<rect x="3" y="3" width="11" height="11"/><rect x="10" y="10" width="11" height="11" fill="currentColor" fill-opacity=".25"/>',
+    overkill:'<path d="M3 9h18M3 13h18"/><path d="m8 4 8 14" />',
+    reverse:'<path d="M4 9h14l-3-3M20 15H6l3 3"/>',
+    regen:'<path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v4h-4"/><circle cx="12" cy="12" r="2"/>',
+    plot:'<path d="M7 9V3h10v6"/><rect x="3" y="9" width="18" height="8" rx="1"/><path d="M7 14h10v7H7z"/>',
+    dwg:'<path d="M6 3h8l4 4v14H6z"/><text x="12" y="17" font-size="6" text-anchor="middle" style="fill:currentColor;stroke:none;font-weight:700">DWG</text>',
+    dxf:'<path d="M6 3h8l4 4v14H6z"/><text x="12" y="17" font-size="6" text-anchor="middle" style="fill:currentColor;stroke:none;font-weight:700">DXF</text>',
+    png:'<path d="M6 3h8l4 4v14H6z"/><text x="12" y="17" font-size="6" text-anchor="middle" style="fill:currentColor;stroke:none;font-weight:700">PNG</text>',
+    pdfin:'<path d="M6 3h8l4 4v14H6z"/><text x="12" y="17" font-size="6" text-anchor="middle" style="fill:currentColor;stroke:none;font-weight:700">PDF</text>',
+    putfile:'<path d="M3 7h6l2 2h10v10H3z"/><path d="M12 17v-6M9.5 13.5 12 11l2.5 2.5"/>',
+    floor:'<path d="M3 20h18M5 20v-5h14v5M7 15v-5h10v5M9 10V5h6v5"/>',
+    color:'<circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" fill-opacity=".5"/>',
+    grid:'<path d="M4 4h16v16H4zM4 9.3h16M4 14.6h16M9.3 4v16M14.6 4v16"/>',
+    ai:'<path d="M12 3v3M12 18v3M5 12H3M21 12h-2"/><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M10 11h.01M14 11h.01M10 14h4"/>',
+    menu:'<path d="M4 6h16M4 12h16M4 18h16"/>',
+    tedit:'<path d="M5 20 11 4l6 16M7.5 14h7"/><path d="m16 8 4-4" />',
+    cmark:'<circle cx="12" cy="12" r="7"/><path d="M12 2v20M2 12h20" stroke-dasharray="3 2"/>',
+    dimarc:'<path d="M4 18a9 9 0 0 1 16 0"/><path d="M3 12a10 10 0 0 1 18 0" stroke-dasharray="2 2"/>',
+    dimcont:'<path d="M3 7v10M10 7v10M17 7v10M3 12h14"/>',
+    dimbase:'<path d="M3 5v14M12 9v10M20 13v6M3 10h9M3 15h17"/>',
+    dimstyle:'<path d="M4 6v12M20 6v12M4 12h16"/><circle cx="12" cy="7" r="2.5"/>',
+    lengthen:'<path d="M3 12h12M19 8v8M15 9l3 3-3 3"/>',
+    align:'<path d="M4 20 10 8M14 20l6-12" /><path d="M4 20h16" stroke-dasharray="2 2"/>',
+    divide:'<path d="M3 12h18M7.5 9v6M12 9v6M16.5 9v6"/>',
+    pedit:'<path d="M3 19 8 8l6 7 7-11"/><circle cx="8" cy="8" r="1.6" fill="currentColor"/>',
+    osnap:'<rect x="8" y="8" width="8" height="8"/><path d="M12 3v5M12 16v5M3 12h5M16 12h5"/>',
+    breakpt:'<path d="M3 12h8M13 12h8"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/>'
+  });
+  const st = document.createElement('style');
+  st.textContent = `
+#toolbar,#tbDraw,#tbModify{display:none!important}
+body.oldbars #toolbar{display:flex!important} body.oldbars #tbDraw,body.oldbars #tbModify{display:flex!important}
+body.nomenu #menubar{display:none}
+#titlebar{height:30px;gap:4px;padding:0 6px;background:#0d1013}
+#titlebar .qa{width:26px;height:24px}
+#titlebar .qa svg{width:16px;height:16px}
+#titlebar .ttl{flex:1;text-align:center;color:var(--text);overflow:hidden;text-overflow:ellipsis}
+#titlebar .ttl small{color:var(--muted);font-weight:400}
+#titlebar .hint2{display:none}
+#ribbon{background:#22272e;border-bottom:1px solid var(--line);user-select:none;flex:none}
+#rbTabs{display:flex;align-items:flex-end;gap:1px;padding:2px 6px 0;background:#1a1e23;border-bottom:1px solid #39414b}
+#rbTabs .rt{background:none;border:1px solid transparent;border-bottom:0;border-radius:4px 4px 0 0;padding:4px 14px;font-size:13px;color:#c7ced6}
+#rbTabs .rt:hover{background:#2a3038}
+#rbTabs .rt.on{background:#22272e;border-color:#39414b;color:#fff;margin-bottom:-1px;padding-bottom:5px;box-shadow:inset 0 2px 0 var(--accent)}
+#rbTabs .rmin{margin-left:auto;background:none;border:0;padding:2px 8px;font-size:12px;color:var(--muted)}
+#rbBody{display:flex;align-items:stretch;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;scrollbar-color:#46505c #1d2126;min-height:96px}
+#ribbon.min #rbBody{display:none}
+.rp{display:flex;flex-direction:column;border-right:1px solid #343b44;flex:none;position:relative}
+.rp-b{flex:1;display:flex;align-items:flex-start;gap:2px;padding:3px 5px 0}
+.rp-t{height:19px;display:flex;align-items:center;justify-content:center;gap:4px;font-size:11.5px;color:#9aa5b1;background:#1d2126;border-top:1px solid #2c323a;cursor:default;white-space:nowrap;padding:0 6px}
+.rp-t.more{cursor:pointer}
+.rp-t.more:hover{background:#2a3038;color:#fff}
+.rbig{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:2px;width:auto;min-width:46px;height:70px;padding:4px 3px 0;background:none;border:1px solid transparent;border-radius:4px;font-size:12px;line-height:1.15;color:#dfe5eb;text-align:center;white-space:nowrap}
+.rbig svg{width:30px;height:30px}
+.rcol{display:flex;flex-direction:column;gap:1px}
+.rsm{display:flex;align-items:center;gap:5px;height:22px;padding:0 6px 0 3px;background:none;border:1px solid transparent;border-radius:3px;font-size:12px;color:#dfe5eb;white-space:nowrap;text-align:left}
+.rsm svg{width:16px;height:16px;flex:none}
+.rsm.ic{padding:0 3px}
+.rbig:hover,.rsm:hover{background:#2f3742;border-color:#46505c}
+.rbig svg,.rsm svg{fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.rbig.on,.rsm.on{background:#264a6e;border-color:var(--accent)}
+.rrow{display:flex;gap:1px;align-items:center}
+.rp select{height:22px;padding:0 4px;font-size:12px;background:#15181c;color:var(--text);border:1px solid #39414b;border-radius:3px;max-width:150px}
+.rp-fly{position:absolute;top:100%;left:0;z-index:30;min-width:190px;background:#22272e;border:1px solid #39414b;border-radius:0 0 6px 6px;box-shadow:0 8px 24px #0009;padding:4px;display:none;flex-direction:column;gap:1px}
+.rp.open .rp-fly{display:flex}
+.rp-fly .rsm{width:100%}
+#docTabs{display:flex;align-items:flex-end;gap:2px;padding:3px 6px 0;background:#15181c;border-bottom:1px solid var(--line);flex:none}
+#docTabs .dt{display:flex;align-items:center;gap:8px;padding:4px 10px;font-size:12.5px;background:#1d2126;border:1px solid var(--line);border-bottom:0;border-radius:4px 4px 0 0;color:var(--muted)}
+#docTabs .dt.on{background:#262c33;color:var(--text);box-shadow:inset 0 2px 0 var(--accent)}
+#docTabs .dt.add{cursor:pointer;padding:4px 9px}
+#docTabs .dt.add:hover{color:#fff}
+#vpLabel{position:absolute;top:6px;left:8px;z-index:5;display:flex;gap:2px;font-size:12px;font-family:system-ui,"Malgun Gothic",sans-serif}
+#vpLabel button{background:#1d2126cc;border:1px solid #39414b;border-radius:3px;padding:1px 6px;font-size:12px;color:#cfe3ff}
+#vpLabel button:hover{background:#2f3742}
+#compass{position:absolute;top:8px;right:12px;z-index:5;width:96px;height:96px;cursor:pointer}
+#compass text{font-size:11px;font-family:system-ui,"Malgun Gothic",sans-serif;text-anchor:middle;dominant-baseline:central}
+#lawbox{top:112px}
+#stage #cmdwin{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);width:min(820px,calc(100% - 24px));z-index:6;background:none;border:0;pointer-events:none}
+#stage #cmdhist{height:auto;max-height:62px;margin-bottom:2px;padding:2px 8px;background:#14171bcc;border-radius:4px 4px 0 0;color:#b9c3cd;pointer-events:auto}
+#stage #cmdhist:empty{display:none}
+#stage #cmdbar{border:1px solid #46505c;border-radius:4px;background:#1b1f24f2;box-shadow:0 4px 14px #0007;pointer-events:auto;flex-wrap:nowrap}
+#stage #cmdbar::before{content:"⌨";color:var(--muted);font-size:13px;padding:0 2px}
+#statusbar{padding:2px 6px;gap:3px;background:#1a1e23;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:thin}
+#statusbar button{padding:2px 8px;font-size:12px;border-radius:3px;background:none;border-color:transparent;white-space:nowrap;flex:none}
+#statusbar button:hover{background:#2a3038;border-color:#39414b}
+#statusbar button.on{background:#264a6e;border-color:#3a6c9c;color:#fff}
+#statusbar .lt{border:1px solid #39414b;border-bottom:0;background:#22272e;border-radius:3px 3px 0 0}
+#statusbar .lt.on{background:#2f3742;box-shadow:inset 0 2px 0 var(--accent)}
+#statusbar #floorbar{padding:0 4px;border:0;background:none;flex-wrap:nowrap;border-left:1px solid #39414b;margin-left:4px}
+#statusbar #floorbar .lv{padding:2px 9px}
+#statusbar #floorbar .meta{white-space:nowrap}
+#statusbar #coords{min-width:140px;text-align:right}
+#statusbar .ssep{width:1px;height:18px;background:#39414b;flex:none;margin:0 3px}
+@media (max-width:820px){ #compass{width:70px;height:70px} #rbBody{height:92px} #statusbar{flex-wrap:wrap} }
+`;
+  document.head.appendChild(st);
+
+  const ic = k => `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[k] || ICONS.list}</svg>`;
+  const aliasOf = name => Object.keys(settings.aliases).find(k => settings.aliases[k] === name);
+  const clickEl = sel => () => { const el = $(sel); if (el) el.click(); };
+  const ctrlKey = k => () => document.dispatchEvent(new KeyboardEvent('keydown', { key:k, ctrlKey:true, bubbles:true }));
+  /* 항목: [라벨, 아이콘, 명령 이름 또는 함수, 켜짐 확인 함수(선택)] */
+  const C = (cmdName, label, icn) => ({ label, icn, run:() => startCmd(cmdName), cmd:cmdName });
+  const F = (fn, label, icn, chk) => ({ label, icn, run:fn, chk });
+  const T = {
+    '홈':[
+      { t:'그리기', cols:[C('LINE', '선', 'line'), C('PLINE', '폴리선', 'pline'), C('CIRCLE', '원', 'circle'), C('ARC', '호', 'arc'),
+        [C('RECTANG', '사각형', 'rect'), C('POLYGON', '다각형', 'polygon'), C('ELLIPSE', '타원', 'ellipse')],
+        [C('HATCH', '해치', 'hatch'), C('SPLINE', '스플라인', 'spline'), C('XLINE', '무한선', 'xline')]],
+        more:[C('RAY', '광선', 'ray'), C('POINT', '점', 'point'), C('DONUT', '도넛', 'donut'), C('REVCLOUD', '구름형 수정 기호', 'revcloud'), C('DIVIDE', '등분할', 'divide'), C('MEASURE', '길이 분할', 'divide')] },
+      { t:'수정', cols:[
+        [C('MOVE', '이동', 'move'), C('COPY', '복사', 'copy'), C('STRETCH', '신축', 'stretch')],
+        [C('ROTATE', '회전', 'rotate'), C('MIRROR', '대칭', 'mirror'), C('SCALE', '축척', 'scale')],
+        [C('TRIM', '자르기', 'trim'), C('FILLET', '모깎기', 'fillet'), C('ARRAY', '배열', 'array')],
+        [C('ERASE', '지우기', 'erase'), C('OFFSET', '간격띄우기', 'offset'), C('EXPLODE', '분해', 'explode')]],
+        more:[C('EXTEND', '연장', 'extend'), C('CHAMFER', '모따기', 'chamfer'), C('BREAK', '끊기', 'break_'), C('BREAKATPOINT', '점에서 끊기', 'breakpt'), C('JOIN', '결합', 'join'), C('LENGTHEN', '길이 조정', 'lengthen'), C('ALIGN', '정렬', 'align'), C('PEDIT', '폴리선 편집', 'pedit'), C('REVERSE', '방향 뒤집기', 'reverse'), C('OVERKILL', '중복 정리', 'overkill'), C('DRAWORDER', '그리기 순서', 'order')] },
+      { t:'주석', cols:[C('TEXT', '문자', 'text'), C('DIMLINEAR', '치수', 'dimlin'),
+        [C('QLEADER', '지시선', 'leader'), C('QDIM', '빠른 치수', 'qdim'), C('DIMSTYLE', '치수 스타일', 'dimstyle')]],
+        more:[C('MTEXT', '여러 줄 문자', 'mtext'), C('TEXTEDIT', '문자 고치기', 'tedit'), C('DIMALIGNED', '정렬 치수', 'dimali'), C('DIMANGULAR', '각도 치수', 'dimang'), C('DIMRADIUS', '반지름 치수', 'dimrad'), C('DIMDIAMETER', '지름 치수', 'dimdia'), C('DIMARC', '호 길이 치수', 'dimarc'), C('DIMORDINATE', '좌표 치수', 'dimord'), C('DIMCONTINUE', '연속 치수', 'dimcont'), C('DIMBASELINE', '기준선 치수', 'dimbase'), C('CENTERMARK', '중심 표시', 'cmark')] },
+      { t:'도면층', cols:[C('LAYER', '도면층\n특성', 'layer'), { el:'layer' }] },
+      { t:'블록', cols:[C('INSERT', '삽입', 'block'), [C('BLOCK', '작성', 'block'), C('XATTACH', '외부 참조', 'xref'), C('PURGE', '정리', 'purge')]] },
+      { t:'특성', cols:[C('MATCHPROP', '특성\n일치', 'brush'), { el:'props' }] },
+      { t:'그룹', cols:[C('GROUP', '그룹', 'group'), [C('UNGROUP', '그룹 해제', 'ungroup')]] },
+      { t:'유틸리티', cols:[C('DIST', '측정', 'dist'), [C('AREA', '면적', 'area'), C('LIST', '정보', 'list'), C('ID', '좌표', 'point')], [C('SELECTALL', '모두 선택', 'all'), C('QSELECT', '빠른 선택', 'qsel'), C('FIND', '찾기', 'find')]] },
+      { t:'클립보드', cols:[C('PASTECLIP', '붙여넣기', 'paste'), [F(ctrlKey('c'), '복사', 'copy'), F(ctrlKey('x'), '잘라내기', 'cut'), C('PASTEORIG', '원위치 붙여넣기', 'paste')]] }
+    ],
+    '삽입':[
+      { t:'파일', cols:[F(clickEl('#bPutFile'), '파일\n넣기', 'putfile'), F(() => openPdfImport(), 'PDF→\nCAD', 'pdfin'), C('OPEN', '도면 열기\nDWG·DXF', 'open'), [C('XATTACH', '외부 참조', 'xref')]] },
+      { t:'블록', cols:[C('INSERT', '삽입', 'block'), [C('BLOCK', '블록 작성', 'block'), C('PURGE', '정리', 'purge'), C('EXPLODE', '분해', 'explode')]] },
+      { t:'참조', cols:[[C('PDFSCALE', 'PDF 축척 맞추기', 'dimlin'), F(clickEl('#bSrvOpen'), '서버 도면 열기', 'open')]] }
+    ],
+    '주석':[
+      { t:'문자', cols:[C('MTEXT', '여러 줄\n문자', 'mtext'), [C('TEXT', '한 줄 문자', 'text'), C('TEXTEDIT', '문자 고치기', 'tedit'), C('FIND', '찾기·바꾸기', 'find')], [C('DIMTXT', '치수 글자 크기', 'dimstyle')]] },
+      { t:'치수', cols:[C('DIMLINEAR', '선형', 'dimlin'), C('QDIM', '빠른\n치수', 'qdim'),
+        [C('DIMALIGNED', '정렬', 'dimali'), C('DIMANGULAR', '각도', 'dimang'), C('DIMARC', '호 길이', 'dimarc')],
+        [C('DIMRADIUS', '반지름', 'dimrad'), C('DIMDIAMETER', '지름', 'dimdia'), C('DIMORDINATE', '좌표', 'dimord')],
+        [C('DIMCONTINUE', '연속', 'dimcont'), C('DIMBASELINE', '기준선', 'dimbase'), C('DIMSTYLE', '치수 스타일', 'dimstyle')]] },
+      { t:'지시선', cols:[C('QLEADER', '지시선', 'leader')] },
+      { t:'표시', cols:[C('CENTERMARK', '중심\n표시', 'cmark'), [C('REVCLOUD', '구름형 수정 기호', 'revcloud'), C('HATCH', '해치', 'hatch')]] }
+    ],
+    '건축':[
+      { t:'요소', cols:[C('WALL', '벽', 'wall'), C('DOOR', '문', 'door'), C('WINDOW', '창', 'win'), C('ROOM', '실', 'room')] },
+      { t:'층', cols:[F(() => editLevel(null), '층\n추가', 'floor'), [F(() => { const l = lvOf(doc.cur); if (l) editLevel(l); }, '지금 층 수정·삭제', 'floor')]] },
+      { t:'도면', cols:[F(clickEl('#bSheet'), '도곽·\n표제란', 'sheet'), F(clickEl('#bViews'), '입면·\n단면', 'views'), C('VIEW3D', '3D\n보기', 'cube'), [F(clickEl('#b3d'), '3D용 내보내기', 'cube')]] }
+    ],
+    '뷰':[
+      { t:'탐색', cols:[F(clickEl('#bZoom'), '전체\n보기', 'zext'), [F(clickEl('#bZin'), '확대', 'zin'), F(clickEl('#bZout'), '축소', 'zout'), C('REGEN', '다시 그리기', 'regen')]] },
+      { t:'화면', cols:[C('SCREENCOLOR', '화면 색', 'color'), [F(clickEl('#tGrid'), '그리드 (F7)', 'grid', () => gridOn), F(clickEl('#tOrtho'), '직교 (F8)', 'rect', () => $('#tOrtho').classList.contains('on')), F(clickEl('#tSnap'), '객체 스냅 (F3)', 'osnap', () => $('#tSnap').classList.contains('on'))]] },
+      { t:'창', cols:[F(clickEl('#tAI'), 'AI\n도우미', 'ai', () => !$('#aiPanel').classList.contains('hide')), [F(() => setBars('nomenu'), '메뉴 막대', 'menu', () => !document.body.classList.contains('nomenu')), F(() => setBars('oldbars'), '예전 도구막대', 'props', () => document.body.classList.contains('oldbars')), F(() => setRibbonMin(!rb.classList.contains('min')), '리본 접기', 'zout', () => rb.classList.contains('min'))]] },
+      { t:'3D', cols:[C('VIEW3D', '3D 보기', 'cube')] }
+    ],
+    '관리':[
+      { t:'설정', cols:[F(clickEl('#bSet'), '설정', 'gear'), F(clickEl('#bHelp'), '명령어\n목록', 'help'), [C('OSNAP', '스냅·극좌표 설정', 'osnap'), C('DIMSTYLE', '치수 스타일', 'dimstyle'), C('SCREENCOLOR', '화면 색', 'color')]] },
+      { t:'정리', cols:[C('OVERKILL', '중복\n정리', 'overkill'), [C('PURGE', '안 쓰는 블록 정리', 'purge'), C('DRAWORDER', '그리기 순서', 'order'), C('REVERSE', '방향 뒤집기', 'reverse')]] },
+      { t:'선택', cols:[[C('QSELECT', '조건으로 선택', 'qsel'), C('SELECTSIMILAR', '비슷한 것 선택', 'sim'), C('FIND', '찾기·바꾸기', 'find')]] }
+    ],
+    '출력':[
+      { t:'출력', cols:[C('PLOT', '출력\n(PDF)', 'plot'), F(clickEl('#bPng'), 'PNG\n그림', 'png')] },
+      { t:'내보내기', cols:[F(clickEl('#bDxf'), 'DXF', 'dxf'), C('DWGOUT', 'DWG', 'dwg'), F(clickEl('#b3d'), '3D용\nJSON', 'cube')] },
+      { t:'서버', cols:[F(clickEl('#bSrvSave'), '서버\n저장', 'save'), F(clickEl('#bSrvOpen'), '서버\n열기', 'open'), [F(clickEl('#bNew'), '새 도면', 'new')]] }
+    ]
+  };
+
+  const chkers = [];
+  function mkBtn(it, cls) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = cls;
+    const al = it.cmd ? aliasOf(it.cmd) : null, plain = it.label.replace(/\n/g, ' ');
+    b.innerHTML = ic(it.icn) + '<span></span>'; b.lastChild.textContent = cls === 'rbig' ? it.label : plain;
+    if (cls === 'rbig') b.lastChild.style.whiteSpace = 'pre';
+    b.title = plain + (al ? ` (${al})` : it.cmd ? ` (${it.cmd})` : '');
+    b.onclick = () => { b.blur(); rb.querySelectorAll('.rp.open').forEach(p => p.classList.remove('open')); it.run(); setTimeout(() => { refreshChk(); if (it.cmd && !document.querySelector('dialog[open]')) $('#cmd').focus(); }, 30); };
+    if (it.chk) chkers.push([b, it.chk]);
+    return b;
+  }
+  function refreshChk() { for (const [b, f] of chkers) { try { b.classList.toggle('on', !!f()); } catch (e) {} } }
+  window.ribbonRefresh = refreshChk;
+
+  const rb = document.createElement('div'); rb.id = 'ribbon';
+  rb.innerHTML = '<div id="rbTabs" role="tablist"></div><div id="rbBody"></div>';
+  $('#toolbar').before(rb);
+  const tabsEl = rb.firstChild, body = rb.lastChild, panes = {};
+  /* 도면층·특성 패널의 고르기 상자는 예전 도구막대에서 옮겨 옴(동작 그대로) */
+  function elBlock(kind) {
+    const box = document.createElement('div'); box.className = 'rcol'; box.style.paddingTop = '2px';
+    if (kind === 'layer') {
+      const sel = $('#layerSel'); if (sel) { sel.className = ''; sel.title = '현재 도면층'; box.appendChild(sel); }
+      const row = document.createElement('div'); row.className = 'rrow';
+      for (const it of [C('LAYOFF', '선택한 것의 도면층 끄기', 'layoff'), C('LAYISO', '선택한 도면층만 보기', 'layiso'), C('LAYUNISO', '분리 해제', 'layon'), C('LAYON', '모두 켜기', 'layon'), C('LAYMCUR', '선택한 것의 도면층을 현재로', 'laycur')]) {
+        const b = mkBtn(it, 'rsm ic'); b.lastChild.remove(); row.appendChild(b);
+      }
+      box.appendChild(row);
+    } else {
+      for (const id of ['#colorSel', '#ltSel']) { const s = $(id); if (s) { s.className = ''; box.appendChild(s); } }
+      box.appendChild(mkBtn(C('PROPERTIES', '속성 (Ctrl+1)', 'props'), 'rsm'));
+    }
+    return box;
+  }
+  for (const [name, panels] of Object.entries(T)) {
+    const tb = document.createElement('button'); tb.type = 'button'; tb.className = 'rt'; tb.textContent = name; tb.setAttribute('role', 'tab');
+    tb.onclick = () => showTab(name); tb.ondblclick = () => setRibbonMin(!rb.classList.contains('min'));
+    tabsEl.appendChild(tb);
+    const pane = document.createElement('div'); pane.style.display = 'contents'; panes[name] = [tb, pane];
+    for (const p of panels) {
+      const pd = document.createElement('div'); pd.className = 'rp';
+      const pb = document.createElement('div'); pb.className = 'rp-b';
+      for (const col of p.cols) {
+        if (col.el) { pb.appendChild(elBlock(col.el)); continue; }
+        if (Array.isArray(col)) { const c = document.createElement('div'); c.className = 'rcol'; for (const it of col) c.appendChild(mkBtn(it, 'rsm')); pb.appendChild(c); continue; }
+        pb.appendChild(mkBtn(col, 'rbig'));
+      }
+      const pt = document.createElement('div'); pt.className = 'rp-t'; pt.textContent = p.t;
+      pd.append(pb, pt);
+      if (p.more) {
+        pt.classList.add('more'); pt.textContent = p.t + ' ▾'; pt.title = '더 보기';
+        const fly = document.createElement('div'); fly.className = 'rp-fly';
+        for (const it of p.more) fly.appendChild(mkBtn(it, 'rsm'));
+        pd.appendChild(fly);
+        pt.onclick = ev => { ev.stopPropagation(); const o = pd.classList.contains('open'); rb.querySelectorAll('.rp.open').forEach(x => x.classList.remove('open')); if (!o) { pd.classList.add('open'); const r = pd.getBoundingClientRect(); fly.style.position = 'fixed'; fly.style.left = Math.min(r.left, innerWidth - 200) + 'px'; fly.style.top = r.bottom + 'px'; } };
+      }
+      pane.appendChild(pd);
+    }
+    body.appendChild(pane);
+  }
+  document.addEventListener('pointerdown', ev => { if (!ev.target.closest('.rp')) rb.querySelectorAll('.rp.open').forEach(x => x.classList.remove('open')); });
+  body.addEventListener('scroll', () => rb.querySelectorAll('.rp.open').forEach(x => x.classList.remove('open')));
+  function showTab(name) {
+    if (!panes[name]) name = '홈';
+    for (const [n, [tb, pane]] of Object.entries(panes)) { tb.classList.toggle('on', n === name); pane.style.display = n === name ? 'contents' : 'none'; }
+    if (rb.classList.contains('min')) setRibbonMin(false);
+    store.set('vc.rbTab', name); refreshChk();
+  }
+  function setRibbonMin(v) { rb.classList.toggle('min', v); store.set('vc.rbMin', v); resize(); refreshChk(); }
+  const mn = document.createElement('button'); mn.type = 'button'; mn.className = 'rmin'; mn.textContent = '▲ 리본 접기';
+  mn.onclick = () => setRibbonMin(!rb.classList.contains('min'));
+  tabsEl.appendChild(mn);
+  new MutationObserver(() => { mn.textContent = rb.classList.contains('min') ? '▼ 리본 펼치기' : '▲ 리본 접기'; }).observe(rb, { attributes:true, attributeFilter:['class'] });
+  function setBars(cls) { document.body.classList.toggle(cls); store.set('vc.' + cls, document.body.classList.contains(cls)); resize(); refreshChk(); }
+  if (store.get('vc.nomenu', false)) document.body.classList.add('nomenu');
+  if (store.get('vc.oldbars', false)) document.body.classList.add('oldbars');
+  rb.classList.toggle('min', !!store.get('vc.rbMin', false));
+  showTab(store.get('vc.rbTab', '홈'));
+
+  /* 제목줄: 빠른 실행 아이콘 + 가운데 제목 */
+  const tbar = $('#titlebar'), app = tbar.querySelector('.app');
+  const qa = document.createElement('span'); qa.style.cssText = 'display:flex;gap:1px;margin-left:4px';
+  for (const [sel, icn, tt] of [['#bNew', 'new', '새 도면'], ['#bSrvOpen', 'open', '서버 도면 열기'], ['#bSrvSave', 'save', '서버 저장 (Ctrl+S)'], ['#bPutFile', 'putfile', '파일 넣기'], [null, 'plot', '출력 (Ctrl+P)'], ['#bUndo', 'undo', '실행취소 (Ctrl+Z)'], ['#bRedo', 'redo', '다시실행 (Ctrl+Y)']]) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'ib qa'; b.innerHTML = ic(icn); b.title = tt;
+    b.onclick = () => { b.blur(); if (sel) $(sel).click(); else startCmd('PLOT'); }; qa.appendChild(b);
+  }
+  const mb = document.createElement('button'); mb.type = 'button'; mb.className = 'ib qa'; mb.innerHTML = ic('menu'); mb.title = '메뉴 막대 보이기/숨기기';
+  mb.onclick = () => { mb.blur(); setBars('nomenu'); }; qa.appendChild(mb);
+  app.after(qa);
+  const ttl = document.createElement('span'); ttl.className = 'ttl'; qa.after(ttl);
+  const srvT = $('#srvTitle'); srvT.style.display = 'none';
+  /* 도면 탭 */
+  const dtabs = document.createElement('div'); dtabs.id = 'docTabs';
+  dtabs.innerHTML = '<span class="dt on"><span></span></span><span class="dt add" title="새 도면">＋</span>';
+  dtabs.lastChild.onclick = clickEl('#bNew');
+  $('#work').before(dtabs);
+  const docName = () => (srvT.textContent || '').trim() || '도면1';
+  function updTitle() { const n = docName(); ttl.innerHTML = '말로 캐드 <small></small>'; ttl.lastChild.textContent = '— ' + n; dtabs.querySelector('.dt.on span').textContent = n; document.title = n + ' — 말로 캐드'; }
+  new MutationObserver(updTitle).observe(srvT, { childList:true, characterData:true, subtree:true });
+  updTitle();
+
+  /* 도면 위: 왼쪽 위 「[-][층][평면도][2D]」, 오른쪽 위 방위 표시, 아래 떠 있는 명령줄 */
+  const stage = $('#stage');
+  const vp = document.createElement('div'); vp.id = 'vpLabel';
+  const vb = (txt, tt, fn) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = txt; b.title = tt; b.onclick = () => { b.blur(); fn(); }; vp.appendChild(b); return b; };
+  vb('[-]', '리본 접기/펼치기', () => setRibbonMin(!rb.classList.contains('min')));
+  const vFloor = vb('[1층]', '층 바꾸기 — 아래 층 탭에서 골라도 됩니다', () => {
+    const i = doc.levels.findIndex(l => l.id === doc.cur), n = doc.levels[(i + 1) % doc.levels.length];
+    if (n) { doc.cur = n.id; save(); renderFloors(); draw(); }
+  });
+  vb('[평면도]', '전체 보기 (Z → A)', clickEl('#bZoom'));
+  vb('[2D 선]', '3D로 보기', () => startCmd('VIEW3D'));
+  stage.appendChild(vp);
+  const NS = 'http://www.w3.org/2000/svg', cp = document.createElementNS(NS, 'svg');
+  cp.id = 'compass'; cp.setAttribute('viewBox', '0 0 100 100');
+  cp.innerHTML = '<title>방위 (위쪽 = 북) — 누르면 전체 보기</title>' +
+    '<circle cx="50" cy="50" r="34" fill="none" stroke-width="7" class="ring"/>' +
+    '<rect x="37" y="37" width="26" height="26" rx="2" class="cube"/>' +
+    '<text x="50" y="50" class="cubet">위</text>' +
+    '<text x="50" y="9" class="dir">북</text><text x="92" y="50" class="dir">동</text><text x="50" y="92" class="dir">남</text><text x="8" y="50" class="dir">서</text>' +
+    '<path d="M50 13 46 21h8z" class="arrow"/>';
+  cp.onclick = clickEl('#bZoom');
+  stage.appendChild(cp);
+  function paintCompass() {
+    const light = typeof bgLight === 'function' && bgLight();
+    const ring = light ? '#c9d0d7' : '#3a434d', fg = light ? '#3a4450' : '#c7ced6', cube = light ? '#f3f5f7' : '#262c33';
+    cp.querySelector('.ring').setAttribute('stroke', ring);
+    cp.querySelector('.cube').setAttribute('fill', cube); cp.querySelector('.cube').setAttribute('stroke', ring);
+    cp.querySelectorAll('text').forEach(t => t.setAttribute('fill', fg));
+    cp.querySelector('.arrow').setAttribute('fill', '#d9534f');
+    vp.querySelectorAll('button').forEach(b => { b.style.background = light ? '#ffffffd9' : ''; b.style.color = light ? '#1f4f86' : ''; b.style.borderColor = light ? '#c9d0d7' : ''; });
+  }
+  paintCompass();
+  if (typeof applyView === 'function') { const av0 = applyView; applyView = () => { av0(); paintCompass(); }; }
+  const cw = $('#cmdwin'); stage.appendChild(cw);
+  /* 명령 기록은 최근 3줄만 보이게(위로 스크롤하면 전부) */
+  /* 아래: 모형·배치 탭, 층 탭, 상태 아이콘 */
+  const sb = $('#statusbar'), coords = $('#coords');
+  const lt1 = document.createElement('button'); lt1.type = 'button'; lt1.className = 'lt on'; lt1.textContent = '모형'; lt1.title = '그리는 화면';
+  const lt2 = document.createElement('button'); lt2.type = 'button'; lt2.className = 'lt'; lt2.textContent = '배치(출력)'; lt2.title = '종이에 맞춰 출력 (PDF)';
+  lt2.onclick = () => { lt2.blur(); startCmd('PLOT'); };
+  sb.prepend(lt1, lt2, $('#floorbar'));
+  const sp = sb.querySelector('.spacer'); if (sp) sb.insertBefore(sp, coords);
+  const sep = () => { const s = document.createElement('span'); s.className = 'ssep'; return s; };
+  coords.after(sep());
+  $('#tAI').before(sep());
+  const lvName = () => { const l = lvOf(doc.cur); return l ? l.name : '1층'; };
+  const rf0 = renderFloors;
+  renderFloors = () => { rf0(); vFloor.textContent = `[${lvName()}]`; };
+  vFloor.textContent = `[${lvName()}]`;
+  for (const id of ['#tGrid', '#tOrtho', '#tSnap', '#tPolar', '#tAI']) { const b = $(id); if (b) b.addEventListener('click', () => setTimeout(refreshChk, 30)); }
+  document.addEventListener('keydown', ev => { if (/^F\d+$/.test(ev.key)) setTimeout(refreshChk, 30); });
+  resize();
+})();
+
 draw();
 })();
