@@ -1805,7 +1805,7 @@ async function buildDwg() {
     if (!layers.has(Lr.name)) { const ly = new A.Layer(Lr.name); try { ly.color = new A.Color(Lr.color); } catch {} ad.layers.add(ly); layers.set(Lr.name, ly); }
     return layers.get(Lr.name);
   };
-  const add = (ent, e) => { const ly = layerFor(e); if (ly) ent.layer = ly; ad.modelSpace.entities.add(ent); };
+  const add = (ent, e) => { const ly = layerFor(e); if (ly) ent.layer = ly; if (e.color) { try { ent.color = new A.Color(hexToAci(e.color)); } catch {} } ad.modelSpace.entities.add(ent); };
   const poly = (pts, closed, e) => {
     if (pts.length === 2 && !closed) { const l = new A.Line(); l.startPoint = XYZ(...pts[0]); l.endPoint = XYZ(...pts[1]); add(l, e); return; }
     const p = new A.LwPolyline(); for (const q of pts) { const v = new A.LwPolylineVertex(); v.location = new A.XY(q[0], q[1]); p.vertices.push(v); } p.isClosed = !!closed; add(p, e);
@@ -1894,7 +1894,7 @@ function plotSVG(o) {
     let prs = e.type === 'text' ? [{ k:'text', x:e.x, y:e.y, h:e.h, rot:(e.rot || 0) * D2R, text:e.text }] : primsAny(e);
     if (!prs) continue;
     if (e.type === 'room') { const c = polyCentroid(e.pts); prs = prs.concat([{ k:'text', x:c[0], y:c[1], h:Math.max(doc.dimTxt * 1.2, 1), rot:0, text:`${e.name || ''} ${polyAreaM2(e.pts).toFixed(2)}㎡`, center:true }]); }
-    const lk = plotKey(e), col = colOf(lk), lw = lwOf(lk), dashed = DASH[lk] || (((LAYERS[e.layer] || {}).dash || []).length ? '2.5 1.2' : '');
+    const lk = plotKey(e), col = e.color && !o.mono ? e.color : colOf(lk), lw = lwOf(lk), dashed = (e.lt && LT_PLOT[e.lt]) || DASH[lk] || (((LAYERS[e.layer] || {}).dash || []).length ? '2.5 1.2' : '');
     const st = `fill="none" stroke="${col}" stroke-width="${lw}"${dashed ? ` stroke-dasharray="${dashed}"` : ''}`;
     for (const q of prs) {
       if (q.k === 'pl') { if (q.nb) continue; out.push(`<${q.closed ? 'polygon' : 'polyline'} points="${q.pts.map(p => X(p[0]) + ',' + Y(p[1])).join(' ')}" ${st}/>`); }
@@ -2156,13 +2156,14 @@ const fitBg = c => { const L = hexLum(c); if (bgLight() && L > 0.75) return '#11
 const isDimLike = e => isDim(e) || ['dimang', 'dimord', 'leader'].includes(e.type) || e.layer === 'dim';
 function viewColor(e) {
   const V = settings.view, base = (LAYERS[e.layer] || LAYERS['0']).color;
+  if (e.color) return fitBg(e.color); // 객체에 직접 정한 색이 먼저(오토캐드와 같음)
   if (isDimLike(e) && V.keepDim) return fitBg(base);
   if ((e.type === 'text' || e.type === 'mtext') && V.text) return V.text;
   return V.ink || fitBg(base);
 }
 {
   const drawEnt0 = drawEnt;
-  drawEnt = (e, color, dash, width) => drawEnt0(e, color || viewColor(e), dash, width); // 선택·미리보기처럼 색을 정해 부르는 경우는 그대로
+  drawEnt = (e, color, dash, width) => drawEnt0(e, color || viewColor(e), dash || (e.lt && LT_DASH[e.lt]) || undefined, width); // 선택·미리보기처럼 색을 정해 부르는 경우는 그대로
   drawGrid = (W, H) => {
     const light = bgLight(), target = 40 / view.s, p = Math.pow(10, Math.floor(Math.log10(target)));
     let step = p * 10; for (const m of [1, 2, 5, 10]) if (p * m >= target) { step = p * m; break; }
@@ -2237,6 +2238,238 @@ DEFAULT_ALIASES.BG = 'SCREENCOLOR'; if (settings.aliases.BG == null) settings.al
 M('형식').unshift(C('SCREENCOLOR', '화면 색 (배경·그림·글자)…'));
 M('보기').push(C('SCREENCOLOR', '화면 색 (배경·그림·글자)…'));
 cv.style.background = settings.view.bg;
+
+/* =====================================================================
+   3차: 손으로 빨리 고치는 명령 — 더블클릭 편집, 객체별 색·선 종류, 선택 도구, 찾기/바꾸기, 레이어 도구,
+        그리기 순서, 중복 제거, 빠른 치수, 호 길이 치수, 중심 표시, 벽·문·창·실 직접 그리기 등
+   ===================================================================== */
+/* ---------- 객체별 색·선 종류 (도구막대에서 고름, 없으면 레이어를 따름) ---------- */
+const LT_DASH = { center:[16, 4, 3, 4], hidden:[8, 5], dashed:[12, 6], phantom:[18, 4, 4, 4, 4, 4] };
+const LT_PLOT = { center:'6 1.2 1 1.2', hidden:'2.5 1.2', dashed:'4 2', phantom:'8 1.5 1.5 1.5 1.5 1.5' };
+const LT_DXF = { center:'CENTER', hidden:'HIDDEN', dashed:'HIDDEN', phantom:'PHANTOM' };
+const COLOR_LIST = [['', '레이어 색'], ['#ff0000', '빨강'], ['#ffff00', '노랑'], ['#00c000', '초록'], ['#00c0ff', '하늘'], ['#0040ff', '파랑'], ['#ff00ff', '자홍'], ['#000000', '검정'], ['#ffffff', '흰색'], ['#808080', '회색']];
+function hexToAci(hex) {
+  const m = /^#([0-9a-f]{6})$/i.exec(hex || ''); if (!m) return 7;
+  const v = parseInt(m[1], 16), r = v >> 16, g = (v >> 8) & 255, b = v & 255;
+  return ACI.reduce((best, c) => { const d = (c[1] - r) ** 2 + (c[2] - g) ** 2 + (c[3] - b) ** 2; return d < best[1] ? [c[0], d] : best; }, [7, Infinity])[0];
+}
+window.dxfEntLayer = e => { const l = Object.assign({}, dxfLayerOf(e)); if (e.color) l.c62 = hexToAci(e.color); if (e.lt && LT_DXF[e.lt]) l.lt6 = LT_DXF[e.lt]; return l; };
+let curColor = '', curLt = ''; // 새로 그리는 객체의 색·선 종류('' = 레이어를 따름)
+{
+  const commit0 = commit;
+  commit = (...ents) => { for (const e of ents) { if (curColor && e.color == null && !isDimLike(e)) e.color = curColor; if (curLt && e.lt == null && !isDimLike(e)) e.lt = curLt; } commit0(...ents); };
+  const mkSel = (id, title, items, onPick) => {
+    const s = document.createElement('select'); s.id = id; s.className = 'tb'; s.title = title;
+    for (const [v, t] of items) { const o = document.createElement('option'); o.value = v; o.textContent = t; s.appendChild(o); }
+    s.onchange = () => { onPick(s.value); s.blur(); }; return s;
+  };
+  // 고른 객체가 있으면 그 객체를 바꾸고, 없으면 앞으로 그릴 객체의 색·선 종류로
+  const colorSel = mkSel('colorSel', '색 — 고른 객체가 있으면 바꾸고, 없으면 앞으로 그릴 색', [...COLOR_LIST, ['custom', '직접 고르기…']], v => {
+    if (v === 'custom') { const i = document.createElement('input'); i.type = 'color'; i.oninput = () => setColor(i.value); i.click(); return; }
+    setColor(v);
+  });
+  const ltSel = mkSel('ltSel', '선 종류 — 고른 객체가 있으면 바꾸고, 없으면 앞으로 그릴 선', [['', '레이어 선'], ['solid', '실선'], ['center', '중심선 ─ ·'], ['hidden', '숨은선 - -'], ['dashed', '파선 ─ ─'], ['phantom', '가상선 ─ · ·']], v => setLt(v));
+  $('#layerSel').after(colorSel, ltSel);
+  window.setColor = v => {
+    if (sel.size) { snapshot(); for (const e of withSel()) { if (v) e.color = v; else delete e.color; } save(); draw(); status(`${sel.size}개 색 → ${v || '레이어 색'}`); colorSel.value = ''; }
+    else { curColor = v; status(`앞으로 그릴 색: ${v || '레이어 색'}`); if (![...colorSel.options].some(o => o.value === v)) colorSel.value = 'custom'; }
+  };
+  window.setLt = v => {
+    const val = v === 'solid' ? 'solid' : v;
+    if (sel.size) { snapshot(); for (const e of withSel()) { if (val) e.lt = val; else delete e.lt; } save(); draw(); status(`${sel.size}개 선 종류 변경`); ltSel.value = ''; }
+    else { curLt = val; status(`앞으로 그릴 선 종류: ${ltSel.options[ltSel.selectedIndex].textContent}`); }
+  };
+  LT_DASH.solid = []; LT_PLOT.solid = ''; // 레이어가 점선이어도 이 객체는 실선
+}
+
+/* ---------- 더블클릭: 글자는 바로 고치고, 나머지는 속성 창 ---------- */
+function editTextOf(e) {
+  let dlg = $('#dlgEd');
+  if (!dlg) {
+    dlg = document.createElement('dialog'); dlg.id = 'dlgEd';
+    dlg.innerHTML = '<h2 id="edTitle">문자 고치기</h2><div class="hint" id="edHint"></div><textarea id="edBody" style="height:110px;margin-top:8px"></textarea><div class="btns"><button id="edCancel">취소</button><button id="edOk" class="primary">적용</button></div>';
+    document.body.appendChild(dlg); $('#edCancel').onclick = () => dlg.close();
+    $('#edBody').addEventListener('keydown', ev => { if (ev.key === 'Enter' && (ev.ctrlKey || !$('#edBody').dataset.multi)) { ev.preventDefault(); $('#edOk').click(); } });
+  }
+  const multi = e.type === 'mtext', key = (e.type === 'room' || e.type === 'slab' || e.type === 'equip') ? 'name' : 'text';
+  $('#edTitle').textContent = isDim(e) || e.type === 'dimang' || e.type === 'dimord' ? '치수 글자 고치기' : key === 'name' ? '이름 고치기' : '문자 고치기';
+  $('#edHint').textContent = isDim(e) || e.type === 'dimang' || e.type === 'dimord' ? '비우면 실제 치수값이 자동으로 들어갑니다.' : multi ? '여러 줄로 쓸 수 있습니다 (Ctrl+Enter = 적용).' : 'Enter = 적용';
+  $('#edBody').dataset.multi = multi ? '1' : ''; $('#edBody').value = e[key] || '';
+  $('#edOk').onclick = () => {
+    const v = multi ? $('#edBody').value.replace(/\s+$/, '') : $('#edBody').value.replace(/\n/g, ' ').trim();
+    snapshot(); if (v) e[key] = v; else if (isDim(e) || e.type === 'dimang' || e.type === 'dimord' || key === 'name') delete e[key]; save(); draw(); dlg.close();
+  };
+  dlg.showModal(); setTimeout(() => { $('#edBody').focus(); $('#edBody').select(); }, 0);
+}
+cv.addEventListener('dblclick', ev => {
+  if (cmd) return;
+  const r = cv.getBoundingClientRect(), e = pick(s2w(ev.clientX - r.left, ev.clientY - r.top)); if (!e) return;
+  sel.clear(); sel.add(e.id); setPrompt(); draw();
+  if (['text', 'mtext', 'leader', 'dim', 'dimdia', 'dimrad', 'dimang', 'dimord', 'room', 'slab', 'equip'].includes(e.type)) editTextOf(e); else openProps(e, 1);
+});
+// 속성 창에도 색·선 종류
+{
+  const op0 = openProps;
+  openProps = (e, count) => {
+    op0(e, count);
+    const f = $('#propForm'), row = (lbl, el) => { const l = document.createElement('label'); l.textContent = lbl; f.append(l, el); };
+    const cs = document.createElement('select'); cs.dataset.ext = 'color';
+    for (const [v, t] of COLOR_LIST) { const o = document.createElement('option'); o.value = v; o.textContent = t; cs.appendChild(o); }
+    if (e.color && !COLOR_LIST.some(c => c[0] === e.color)) { const o = document.createElement('option'); o.value = e.color; o.textContent = e.color; cs.appendChild(o); }
+    cs.value = e.color || ''; row('색', cs);
+    const ls = document.createElement('select'); ls.dataset.ext = 'lt';
+    for (const [v, t] of [['', '레이어 선'], ['solid', '실선'], ['center', '중심선'], ['hidden', '숨은선'], ['dashed', '파선'], ['phantom', '가상선']]) { const o = document.createElement('option'); o.value = v; o.textContent = t; ls.appendChild(o); }
+    ls.value = e.lt || ''; row('선 종류', ls);
+  };
+  $('#propOk').addEventListener('click', () => { // 본체의 적용 다음에 색·선 종류 반영
+    const e = propEnt && findEnt(propEnt.id); if (!e) return;
+    const c = $('#propForm [data-ext=color]'), l = $('#propForm [data-ext=lt]');
+    if (c) { if (c.value) e.color = c.value; else delete e.color; }
+    if (l) { if (l.value) e.lt = l.value; else delete e.lt; }
+    save(); draw();
+  });
+}
+
+/* ---------- 선택 도구 · 찾기/바꾸기 · 그리기 순서 · 중복 제거 · 방향 뒤집기 ---------- */
+const typeKo = t => TYPE_KO[t] || t;
+function openQselect() {
+  let dlg = $('#dlgQs');
+  if (!dlg) {
+    dlg = document.createElement('dialog'); dlg.id = 'dlgQs';
+    dlg.innerHTML = '<h2>조건으로 선택</h2><label for="qsType">종류</label><select id="qsType"></select><label for="qsLay">레이어</label><select id="qsLay"></select><label for="qsCol">색</label><select id="qsCol"></select><div class="hint" id="qsCnt"></div><div class="btns"><button id="qsCancel">닫기</button><button id="qsOk" class="primary">선택</button></div>';
+    document.body.appendChild(dlg); $('#qsCancel').onclick = () => dlg.close();
+  }
+  const ents = doc.ents.filter(visible), opt = (s, list) => { s.innerHTML = ''; for (const [v, t] of [['*', '모두'], ...list]) { const o = document.createElement('option'); o.value = v; o.textContent = t; s.appendChild(o); } };
+  opt($('#qsType'), [...new Set(ents.map(e => e.type))].map(t => [t, typeKo(t)]));
+  opt($('#qsLay'), [...new Set(ents.map(e => e.layer))].map(l => [l, layerLabel(l)]));
+  opt($('#qsCol'), [['', '레이어 색(지정 안 함)'], ...[...new Set(ents.map(e => e.color).filter(Boolean))].map(c => [c, c])]);
+  const match = () => ents.filter(e => ($('#qsType').value === '*' || e.type === $('#qsType').value) && ($('#qsLay').value === '*' || e.layer === $('#qsLay').value) && ($('#qsCol').value === '*' || (e.color || '') === $('#qsCol').value));
+  const upd = () => { $('#qsCnt').textContent = `해당 ${match().length}개`; };
+  ['#qsType', '#qsLay', '#qsCol'].forEach(s => { $(s).onchange = upd; }); upd();
+  $('#qsOk').onclick = () => { sel.clear(); match().forEach(e => sel.add(e.id)); setPrompt(); draw(); dlg.close(); status(`${sel.size}개 선택`); };
+  dlg.showModal();
+}
+function openFind() {
+  let dlg = $('#dlgFind');
+  if (!dlg) {
+    dlg = document.createElement('dialog'); dlg.id = 'dlgFind';
+    dlg.innerHTML = '<h2>찾기 · 바꾸기</h2><div class="hint">문자·여러 줄 문자·지시선·치수 글자·실 이름에서 찾습니다.</div><label for="fdA">찾을 말</label><input type="text" id="fdA"><label for="fdB">바꿀 말</label><input type="text" id="fdB"><div class="hint" id="fdCnt"></div><div class="btns"><button id="fdClose">닫기</button><button id="fdSel">찾아서 선택</button><button id="fdRep" class="primary">모두 바꾸기</button></div>';
+    document.body.appendChild(dlg); $('#fdClose').onclick = () => dlg.close();
+  }
+  const keyOf = e => ['room', 'slab', 'equip'].includes(e.type) ? 'name' : 'text';
+  const hits = () => { const a = $('#fdA').value; return a ? doc.ents.filter(e => typeof e[keyOf(e)] === 'string' && e[keyOf(e)].includes(a)) : []; };
+  $('#fdA').oninput = () => { $('#fdCnt').textContent = $('#fdA').value ? `${hits().length}개 있음` : ''; };
+  $('#fdSel').onclick = () => { sel.clear(); hits().forEach(e => sel.add(e.id)); setPrompt(); zoomSel(); dlg.close(); status(`${sel.size}개 찾음`); };
+  $('#fdRep').onclick = () => { const a = $('#fdA').value, b = $('#fdB').value, hs = hits(); if (!a || !hs.length) return; snapshot(); hs.forEach(e => { const k = keyOf(e); e[k] = e[k].split(a).join(b); }); save(); draw(); $('#fdCnt').textContent = `${hs.length}개 바꿨습니다`; };
+  $('#fdCnt').textContent = ''; dlg.showModal(); setTimeout(() => $('#fdA').focus(), 0);
+}
+function zoomSel() { const b = bounds(withSel()); if (!b) return draw(); const r = cv.getBoundingClientRect(), w = Math.max(b[2] - b[0], 1), h = Math.max(b[3] - b[1], 1); view.s = Math.min(r.width / w, r.height / h) * 0.6; view.ox = r.width / 2 - (b[0] + b[2]) / 2 * view.s; view.oy = r.height / 2 + (b[1] + b[3]) / 2 * view.s; draw(); }
+const geomKey = e => { const n = JSON.parse(JSON.stringify(e)); delete n.id; return JSON.stringify(n, (k, v) => typeof v === 'number' ? Math.round(v * 100) / 100 : v); };
+function overkill(list) { // 똑같은 객체 중복·길이 0인 선 지우기
+  const seen = new Set(), rm = new Set();
+  for (const e of list) {
+    if (e.type === 'line' && Math.hypot(e.x2 - e.x1, e.y2 - e.y1) < 1e-6) { rm.add(e.id); continue; }
+    let k = geomKey(e); if (e.type === 'line') { const r = { ...e, x1:e.x2, y1:e.y2, x2:e.x1, y2:e.y1 }; const k2 = geomKey(r); if (k2 < k) k = k2; } // 방향만 다른 선도 같은 선
+    if (seen.has(k)) rm.add(e.id); else seen.add(k);
+  }
+  doc.ents = doc.ents.filter(e => !rm.has(e.id)); rm.forEach(id => sel.delete(id)); return rm.size;
+}
+window.overkillList = overkill; // 시험용
+function qdim(list, loc) { // 고른 객체의 끝점들 사이에 연속 치수(수평 또는 수직)
+  const b = bounds(list); if (!b) return 0;
+  const horiz = loc[1] > b[3] || loc[1] < b[1] || !(loc[0] > b[2] || loc[0] < b[0]);
+  const pts = list.flatMap(e => snapPts(e).filter(s => ['끝점', '중심', '사분점'].includes(s[2]) && (s[2] !== '사분점' || true)).map(s => [s[0], s[1]]));
+  const key = p => Math.round((horiz ? p[0] : p[1]) * 10) / 10, by = new Map();
+  for (const p of pts) { const k = key(p), cur = by.get(k), dl = horiz ? Math.abs(p[1] - loc[1]) : Math.abs(p[0] - loc[0]); if (!cur || dl < cur[1]) by.set(k, [p, dl]); } // 같은 좌표면 치수선에 가까운 점
+  const sorted = [...by.entries()].sort((a, c) => a[0] - c[0]).map(x => x[1][0]);
+  let n = 0;
+  for (let i = 0; i + 1 < sorted.length; i++) {
+    const p = sorted[i], q = sorted[i + 1];
+    addEnt(horiz ? { type:'dim', layer:'dim', dir:'h', x1:p[0], y1:p[1], x2:q[0], y2:q[1], off:loc[1] - p[1] } : { type:'dim', layer:'dim', dir:'v', x1:p[0], y1:p[1], x2:q[0], y2:q[1], off:loc[0] - p[0] }); n++;
+  }
+  return n;
+}
+window.qdimList = qdim; // 시험용
+
+Object.assign(CMDS, {
+  TEXTEDIT: () => ({ start(c) { c.prompt = '고칠 문자·치수를 클릭:'; }, point(c, p, raw) { const e = pick(raw); if (!e) return status('객체를 클릭하세요'); endCmd(); if (['text', 'mtext', 'leader', 'dim', 'dimdia', 'dimrad', 'dimang', 'dimord', 'room', 'slab', 'equip'].includes(e.type)) editTextOf(e); else openProps(e, 1); } }),
+  COLOR: () => ({ start(c) { c.prompt = '색 — 1빨강 2노랑 3초록 4하늘 5파랑 6자홍 7검정/흰색 8회색, #rrggbb, 또는 L(레이어 색):'; c.rawText = true; },
+    text(c, t) { const u = t.trim().toUpperCase(), map = { 1:'#ff0000', 2:'#ffff00', 3:'#00c000', 4:'#00c0ff', 5:'#0040ff', 6:'#ff00ff', 7:bgLight() ? '#000000' : '#ffffff', 8:'#808080' };
+      const v = u === 'L' || u === 'BYLAYER' ? '' : map[u] || (/^#[0-9A-F]{6}$/.test(u) ? u.toLowerCase() : null); if (v == null) { status('색을 이해하지 못했습니다: ' + t); return true; } endCmd(); setColor(v); return true; } }),
+  LINETYPE: () => ({ start(c) { c.prompt = '선 종류 — S(실선) C(중심선) H(숨은선) D(파선) P(가상선) L(레이어 선):'; },
+    text(c, t) { const v = { S:'solid', C:'center', H:'hidden', D:'dashed', P:'phantom', L:'' }[t.trim().toUpperCase()]; if (v == null) return; endCmd(); setLt(v); return true; } }),
+  SELECTSIMILAR: () => ({ start(c) { selectStep(c, () => { const ref = withSel(), keys = new Set(ref.map(e => e.type + '|' + e.layer + '|' + (e.color || ''))); doc.ents.filter(visible).forEach(e => { if (keys.has(e.type + '|' + e.layer + '|' + (e.color || ''))) sel.add(e.id); }); endCmd(); status(`비슷한 것 ${sel.size}개 선택`); }, '기준으로 삼을'); } }),
+  QSELECT: () => ({ start() { endCmd(); openQselect(); } }),
+  FIND: () => ({ start() { endCmd(); openFind(); } }),
+  DRAWORDER: () => ({ start(c) { selectStep(c, cc => { cc.prompt = '앞으로(F) / 뒤로(B) <F>:'; cc.def.enter = k => this.go(k, true); cc.def.text = (k, t) => { if (/^[fb]$/i.test(t)) { this.go(k, /f/i.test(t)); return true; } }; }, '순서를 바꿀'); },
+    go(k, front) { const s = new Set(sel); snapshot(); const a = doc.ents.filter(e => s.has(e.id)), b = doc.ents.filter(e => !s.has(e.id)); doc.ents = front ? [...b, ...a] : [...a, ...b]; save(); endCmd(); status(front ? '맨 앞으로 보냈습니다' : '맨 뒤로 보냈습니다'); } }),
+  OVERKILL: () => ({ start(c) { selectStep(c, () => { snapshot(); const n = overkill(withSel()); save(); endCmd(); status(n ? `중복·길이 0인 객체 ${n}개 지움` : '지울 중복이 없습니다'); }, '중복을 정리할 (Ctrl+A로 전체)'); } }),
+  REVERSE: () => ({ start(c) { selectStep(c, () => { snapshot(); let n = 0; for (const e of withSel()) { if (e.pts) { e.pts.reverse(); n++; } else if (e.type === 'line') { [e.x1, e.y1, e.x2, e.y2] = [e.x2, e.y2, e.x1, e.y1]; n++; } } save(); endCmd(); status(`${n}개 방향 뒤집음`); }, '방향을 뒤집을'); } }),
+  PASTEORIG: () => ({ start() { endCmd(); if (!clip) return status('복사한 것이 없습니다 (Ctrl+C)'); snapshot(); for (const e of clip.ents) { const n = clone(e); delete n.floor; addEnt(n); } save(); draw(); status(`원래 위치에 ${clip.ents.length}개 붙여넣음`); } }),
+  REGEN: () => ({ start() { endCmd(); blockVer++; draw(); status('다시 그렸습니다'); } }),
+  // 레이어 도구
+  LAYMCUR: () => ({ start(c) { c.prompt = '이 객체의 레이어를 현재 레이어로 — 객체 클릭:'; }, point(c, p, raw) { const e = pick(raw); if (!e) return status('객체를 클릭하세요'); curLayer = e.layer; if ([...$('#layerSel').options].some(o => o.value === e.layer)) $('#layerSel').value = e.layer; endCmd(); status(`현재 레이어: ${layerLabel(e.layer)}`); } }),
+  LAYOFF: () => ({ start(c) { c.prompt = '끌 레이어의 객체를 클릭 (Enter=끝):'; }, point(c, p, raw) { const e = pick(raw); if (!e) return status('객체를 클릭하세요'); doc.layerProps = doc.layerProps || {}; doc.layerProps[e.layer] = Object.assign({}, doc.layerProps[e.layer], { off:true }); save(); draw(); status(`레이어 끔: ${layerLabel(e.layer)}`); } }),
+  LAYON: () => ({ start() { endCmd(); for (const v of Object.values(doc.layerProps || {})) delete v.off; save(); draw(); status('모든 레이어를 켰습니다'); } }),
+  LAYISO: () => ({ start(c) { selectStep(c, () => { const keep = new Set(withSel().map(e => e.layer)); doc.layIso = JSON.parse(JSON.stringify(doc.layerProps || {})); doc.layerProps = doc.layerProps || {}; for (const k of Object.keys(LAYERS)) if (!keep.has(k)) doc.layerProps[k] = Object.assign({}, doc.layerProps[k], { off:true }); save(); endCmd(); draw(); status(`레이어 ${keep.size}개만 남김 — LAYUNISO로 되돌림`); }, '남길 레이어의'); } }),
+  LAYUNISO: () => ({ start() { endCmd(); if (!doc.layIso) return status('LAYISO로 숨긴 것이 없습니다'); doc.layerProps = doc.layIso; delete doc.layIso; save(); draw(); status('레이어를 되돌렸습니다'); } }),
+  // 치수
+  QDIM: () => ({ start(c) { selectStep(c, cc => { cc.prompt = '치수선 위치 (위·아래로 두면 가로, 좌·우로 두면 세로):'; cc.def.point = (k, p) => { snapshot(); const n = qdim(withSel(), p); save(); endCmd(); status(`치수 ${n}개 넣음`); }; }, '치수를 넣을'); } }),
+  DIMARC: () => ({ start(c) { c.prompt = '호 길이 치수 — 호 클릭:'; },
+    point(c, p, raw) { if (!c.e) { const e = pick(raw); if (!e || e.type !== 'arc') return status('호를 클릭하세요'); c.e = e; c.prompt = '치수 위치:'; return; } commit(this.mk(c, p)); endCmd(); },
+    mk(c, p) { const e = c.e, len = e.r * norm360(e.a2 - e.a1) * D2R; return { type:'dimang', layer:'dim', cx:e.cx, cy:e.cy, r:Math.max(dist([e.cx, e.cy], p), 1), a1:e.a1, a2:e.a2, text:'⌒' + dimFmt(len) }; },
+    preview(c, cur) { return c.e ? [this.mk(c, cur)] : []; } }),
+  CENTERMARK: () => ({ start(c) { c.prompt = '중심 표시 — 원·호 클릭 (Enter=끝):'; }, point(c, p, raw) { const e = pick(raw); if (!e || !(e.type === 'circle' || e.type === 'arc' || (e.type === 'column' && e.r))) return status('원이나 호를 클릭하세요'); const L = e.r * 1.25; commit({ type:'line', layer:'center', x1:e.cx - L, y1:e.cy, x2:e.cx + L, y2:e.cy }, { type:'line', layer:'center', x1:e.cx, y1:e.cy - L, x2:e.cx, y2:e.cy + L }); } }),
+  // 건축 요소 직접 그리기
+  WALL: () => ({
+    start(c) { c.t = doc.wallT || 200; c.prompt = `벽 — 두께 ${c.t} (숫자=두께 바꾸기), 첫 점:`; },
+    text(c, t) { if (!c.pts.length && NUMRE.test(t) && +t > 0 && +t < 2000) { c.t = doc.wallT = +t; c.prompt = `벽 두께 ${c.t} — 첫 점:`; return true; } if (/^c$/i.test(t) && c.pts.length > 2) { this.seg(c, c.pts[0]); endCmd(); return true; } },
+    seg(c, p) { const a = c.pts[c.pts.length - 1], wk = c.t >= 200 ? 'struct' : 'partition'; commit({ type:'wall', layer:wk === 'struct' ? 'struct' : 'wall', wk, x1:a[0], y1:a[1], x2:p[0], y2:p[1], t:c.t }); },
+    point(c, p) { if (c.pts.length) this.seg(c, p); c.pts.push(p); c.prompt = `다음 점 (C=닫기, Enter=끝) · 두께 ${c.t}:`; },
+    preview(c, cur) { if (!c.pts.length) return []; const a = c.pts[c.pts.length - 1]; return [{ type:'wall', layer:'struct', x1:a[0], y1:a[1], x2:cur[0], y2:cur[1], t:c.t }]; }
+  }),
+  DOOR: () => ({
+    start(c) { c.w = 900; c.prompt = '문 — 경첩 위치 (벽선 위를 클릭):'; },
+    point(c, p) {
+      if (!c.h) { c.h = p; c.ref = p; c.prompt = '닫힌 문짝 끝 방향(폭은 숫자로도 입력):'; return; }
+      if (c.ang == null) { c.ang = angOf(c.h, p); const d = dist(c.h, p); if (d > 100) c.w = d; c.prompt = '열리는 쪽을 클릭:'; return; }
+      const u = [Math.cos(c.ang * D2R), Math.sin(c.ang * D2R)], s = crs(u, sub(p, c.h)) >= 0 ? 1 : -1;
+      commit({ type:'door', layer:'open', x:c.h[0], y:c.h[1], w:c.w, ang:norm360(c.ang), swing:s }); endCmd();
+    },
+    text(c, t) { if (c.h && c.ang == null && NUMRE.test(t) && +t > 0) { c.w = +t; c.prompt = `폭 ${t} — 닫힌 문짝 방향을 클릭:`; return true; } },
+    preview(c, cur) { if (!c.h) return []; if (c.ang == null) return [{ type:'door', layer:'open', x:c.h[0], y:c.h[1], w:Math.max(dist(c.h, cur), 100), ang:angOf(c.h, cur), swing:1 }]; const u = [Math.cos(c.ang * D2R), Math.sin(c.ang * D2R)]; return [{ type:'door', layer:'open', x:c.h[0], y:c.h[1], w:c.w, ang:c.ang, swing:crs(u, sub(cur, c.h)) >= 0 ? 1 : -1 }]; }
+  }),
+  WINDOW: () => ({
+    start(c) { c.prompt = '창 — 첫 점 (벽선 위):'; },
+    point(c, p) { if (!c.pts.length) { c.pts.push(p); c.prompt = '두번째 점 (또는 길이 입력):'; return; } const a = c.pts[0]; commit({ type:'window', layer:'open', x1:a[0], y1:a[1], x2:p[0], y2:p[1], sill:900, wh:1500 }); endCmd(); },
+    preview(c, cur) { return c.pts.length ? [{ type:'window', layer:'open', x1:c.pts[0][0], y1:c.pts[0][1], x2:cur[0], y2:cur[1] }] : []; }
+  }),
+  ROOM: () => ({
+    start(c) { c.prompt = '실 — 모서리를 차례로 클릭 (Enter=이름 입력):'; },
+    point(c, p) { if (!c.rawText) { c.pts.push(p); c.prompt = `모서리 ${c.pts.length}개 (Enter=이름 입력):`; } },
+    enter(c) { if (c.rawText) { this.fin(c, ''); return; } if (c.pts.length < 3) { endCmd(); return status('모서리가 3개 이상 필요합니다'); } c.rawText = true; c.prompt = '실 이름 (예: 사무실, Enter=이름 없이):'; },
+    text(c, t) { if (!c.rawText) return; this.fin(c, t.trim()); return true; },
+    fin(c, name) { commit({ type:'room', layer:'room', pts:c.pts.slice(), name }); endCmd(); },
+    preview(c, cur) { return c.pts.length && !c.rawText ? [{ type:'polyline', layer:'room', pts:[...c.pts, cur], closed:true }] : []; }
+  })
+});
+Object.assign(CMD_DESC, { TEXTEDIT:'문자·치수 글자 고치기 (더블클릭)', COLOR:'객체 색', LINETYPE:'객체 선 종류', SELECTSIMILAR:'비슷한 것 모두 선택', QSELECT:'조건으로 선택', FIND:'찾기·바꾸기',
+  DRAWORDER:'그리기 순서 (앞으로/뒤로)', OVERKILL:'중복 객체 정리', REVERSE:'방향 뒤집기', PASTEORIG:'원래 위치에 붙여넣기', REGEN:'다시 그리기', LAYMCUR:'객체 레이어를 현재로', LAYOFF:'클릭한 객체의 레이어 끄기',
+  LAYON:'모든 레이어 켜기', LAYISO:'고른 레이어만 남기기', LAYUNISO:'레이어 되돌리기', QDIM:'빠른 치수 (연속)', DIMARC:'호 길이 치수', CENTERMARK:'중심 표시', WALL:'벽 (두께 → 점 연속)', DOOR:'문 (경첩→방향→여는 쪽)', WINDOW:'창 (두 점)', ROOM:'실 (모서리 → 이름)' });
+{
+  const A = { ED:'TEXTEDIT', DDEDIT:'TEXTEDIT', COL:'COLOR', LT:'LINETYPE', DR:'DRAWORDER', QS:'QSELECT', SS:'SELECTSIMILAR', OK:'OVERKILL', RE:'REGEN', LAYM:'LAYMCUR', DAR:'DIMARC', QD:'QDIM', CM:'CENTERMARK', WA:'WALL', DO:'DOOR', WIN:'WINDOW', RM:'ROOM', PO2:'PASTEORIG' };
+  delete A.DO; // DO는 오토캐드에서 도넛 — 문은 DOOR로
+  Object.assign(DEFAULT_ALIASES, A); for (const [k, v] of Object.entries(A)) if (settings.aliases[k] == null) settings.aliases[k] = v;
+  M('편집').push('-', C('SELECTSIMILAR', '비슷한 것 모두 선택'), C('QSELECT', '조건으로 선택…'), C('FIND', '찾기·바꾸기…'), C('PASTEORIG', '원래 위치에 붙여넣기'));
+  M('보기').push(C('REGEN', '다시 그리기'));
+  M('그리기').push('-', C('WALL', '벽'), C('DOOR', '문'), C('WINDOW', '창'), C('ROOM', '실'));
+  const dm = M('치수'); dm.splice(dm.findIndex(x => x && x.cmd === 'DIMRADIUS'), 0, C('DIMARC', '호 길이 치수')); dm.splice(dm.findIndex(x => x && x.cmd === 'DIMCONTINUE'), 0, C('QDIM', '빠른 치수'), C('CENTERMARK', '중심 표시'));
+  M('수정').push('-', C('TEXTEDIT', '문자 고치기', '더블클릭'), C('DRAWORDER', '그리기 순서'), C('OVERKILL', '중복 정리'), C('REVERSE', '방향 뒤집기'));
+  M('형식').splice(2, 0, C('COLOR', '색…'), C('LINETYPE', '선 종류…'), '-', C('LAYMCUR', '객체 레이어를 현재로'), C('LAYOFF', '레이어 끄기 (클릭)'), C('LAYISO', '레이어 하나만 남기기'), C('LAYUNISO', '레이어 되돌리기'), C('LAYON', '모든 레이어 켜기'), '-');
+  Object.assign(ICONS, { wall:'<path d="M3 9h18M3 15h18"/><path d="M3 9v6M21 9v6"/>', door:'<path d="M5 20V6"/><path d="M5 6a14 14 0 0 1 14 14H5"/>', win:'<path d="M3 9h18M3 15h18M3 12h18M3 9v6M21 9v6"/>', room:'<rect x="4" y="5" width="16" height="14" stroke-dasharray="3 2"/><path d="M9 12h6"/>', qdim:'<path d="M3 7v10M9 7v10M15 7v10M21 7v10M3 12h18"/>' });
+  TB_DRAW.unshift(['WALL', '벽', 'wall'], ['DOOR', '문', 'door'], ['WINDOW', '창', 'win'], ['ROOM', '실', 'room'], '-');
+  TB_DRAW.splice(TB_DRAW.findIndex(x => x[0] === 'DIMLINEAR') + 1, 0, ['QDIM', '빠른 치수', 'qdim']);
+}
 
 { // 전체보기를 했는데 보일 것이 없으면 이유를 알려줌(빈 화면만 보여 당황하지 않게)
   const zx0 = zoomExtents;

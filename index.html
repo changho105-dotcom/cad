@@ -1008,13 +1008,13 @@ function exportDXF() {
   g(0, 'TABLE'); g(2, 'STYLE'); g(70, 1); g(0, 'STYLE'); g(2, 'STANDARD'); g(70, 0); g(40, 0); g(41, 1); g(50, 0); g(71, 0); g(42, 2.5); g(3, 'txt'); g(4, ''); g(0, 'ENDTAB');
   g(0, 'ENDSEC');
   g(0, 'SECTION'); g(2, 'ENTITIES');
-  const head = (t, l) => { g(0, t); g(8, l.name); };
+  const head = (t, l) => { g(0, t); g(8, l.name); if (l.lt6) g(6, l.lt6); if (l.c62) g(62, l.c62); }; // 객체별 선 종류·색(있을 때만)
   const line = (x1, y1, x2, y2, l) => { head('LINE', l); g(10, x1); g(20, y1); g(30, 0); g(11, x2); g(21, y2); g(31, 0); };
   const text = (x, y, h, s, rotDeg, l, center) => { head('TEXT', l); g(10, x); g(20, y); g(30, 0); g(40, h); g(1, dxfText(s)); if (rotDeg) g(50, rotDeg); if (center) { g(72, 1); g(11, x); g(21, y); g(31, 0); } };
   const poly = (pts, closed, l) => { head('POLYLINE', l); g(66, 1); g(10, 0); g(20, 0); g(30, 0); g(70, closed ? 1 : 0);
     pts.forEach(p => { head('VERTEX', l); g(10, p[0]); g(20, p[1]); g(30, 0); }); head('SEQEND', l); };
   for (const e of doc.ents) {
-    const l = dxfLayerOf(e);
+    const l = typeof dxfEntLayer === 'function' ? dxfEntLayer(e) : dxfLayerOf(e);
     switch (e.type) {
       case 'line': line(e.x1, e.y1, e.x2, e.y2, l); break;
       case 'circle': head('CIRCLE', l); g(10, e.cx); g(20, e.cy); g(30, 0); g(40, e.r); break;
@@ -1563,17 +1563,20 @@ Object.assign(CMDS, {
   }, '축척'); } }),
   OFFSET: () => ({
     pickPrompt: '간격띄울 객체 클릭 (Enter=종료):',
-    start(c) { c.prompt = `간격 거리 입력 (Enter=${fmt(offsetDist)}):`; c.stage = 'dist'; },
+    start(c) { c.prompt = `간격 거리 입력 (T=통과점, Enter=${fmt(offsetDist)}):`; c.stage = 'dist'; },
     enter(c) { if (c.stage === 'dist') { c.stage = 'pick'; c.prompt = this.pickPrompt; } else endCmd(); },
-    text(c, t) { if (c.stage === 'dist' && NUMBER.test(t) && +t > 0) { offsetDist = +t; c.stage = 'pick'; c.prompt = this.pickPrompt; return true; } },
+    text(c, t) {
+      if (c.stage === 'dist' && /^t$/i.test(t)) { c.through = true; c.stage = 'pick'; c.prompt = '간격띄울 객체 클릭 (통과점 방식, Enter=종료):'; return true; }
+      if (c.stage === 'dist' && NUMBER.test(t) && +t > 0) { offsetDist = +t; c.stage = 'pick'; c.prompt = this.pickPrompt; return true; }
+    },
     point(c, p, raw) {
       if (c.stage === 'dist') return;
-      if (c.stage === 'pick') { const e = pick(raw); if (!e) return status('객체를 클릭하세요'); c.src = e; c.stage = 'side'; c.prompt = '어느 쪽으로 띄울까요? 그쪽을 클릭:'; return; }
-      const n = offsetEnt(c.src, offsetDist, raw);
+      if (c.stage === 'pick') { const e = pick(raw); if (!e) return status('객체를 클릭하세요'); c.src = e; c.stage = 'side'; c.prompt = c.through ? '새 선이 지날 점을 클릭:' : '어느 쪽으로 띄울까요? 그쪽을 클릭:'; return; }
+      const n = offsetEnt(c.src, c.through ? hitDist(c.src, p) : offsetDist, c.through ? p : raw); // T: 클릭한 점을 지나게
       if (n) commit(n); else status('이 객체는 간격띄우기를 할 수 없거나 너무 작아집니다');
       c.stage = 'pick'; c.src = null; c.prompt = this.pickPrompt;
     },
-    preview(c, cur) { if (c.stage !== 'side') return []; const n = offsetEnt(c.src, offsetDist, cur); return n ? [{ ...n, ghost:true }] : []; }
+    preview(c, cur) { if (c.stage !== 'side') return []; const d = c.through ? hitDist(c.src, cur) : offsetDist; if (!(d > 0)) return []; const n = offsetEnt(c.src, d, cur); return n ? [{ ...n, ghost:true }] : []; }
   }),
   DIST: () => ({
     start(c) { c.prompt = '거리 재기 — 첫 점:'; },
