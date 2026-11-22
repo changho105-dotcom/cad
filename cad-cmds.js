@@ -2130,6 +2130,15 @@ window.takeFile = takeFile; // 시험용
     const blob = it.getAsFile(); takeFile(new File([blob], '붙여넣은 그림.png', { type:blob.type }));
   });
 })();
+{ // AI 창 📎: 그림은 줄여서 붙이고(큰 사진은 AI가 안 받음), DWG·DXF도 고를 수 있게. PDF는 예전처럼 AI 첨부
+  const fileIn = $('#file'), change0 = fileIn.onchange;
+  fileIn.accept = 'image/*,.pdf,.dwg,.dxf'; $('#bAttach').title = '그림·PDF·DWG·DXF 첨부 (그림은 AI가 따라 그림)';
+  fileIn.onchange = ev => {
+    const f = ev.target.files[0];
+    if (f && !(f.type === 'application/pdf' || /\.pdf$/i.test(f.name))) { ev.target.value = ''; takeFile(f); return; }
+    change0(ev);
+  };
+}
 CMDS.PUTFILE = () => ({ start() { endCmd(); $('#bPutFile').click(); } });
 CMD_DESC.PUTFILE = '파일 넣기 (그림·PDF·DWG·DXF)';
 M('파일').splice(1, 0, ['파일 넣기 (그림·PDF·DWG·DXF)…', '끌어다 놓기', () => $('#bPutFile').click()]);
