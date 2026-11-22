@@ -557,6 +557,7 @@ function closedLoop(e) {
   if (e.type === 'hatch') return e.pts;
   return null;
 }
+window.CADX = { primsAny, closedLoop, M:t => MENUS.find(m => m[0] === t)[1] };
 window.CAD_GEOM = G; // 시험·디버그용
 
 /* ---------- 고르기·스냅·극좌표 ---------- */
@@ -2702,10 +2703,10 @@ body.nomenu #menubar{display:none}
     }
     return box;
   }
-  for (const [name, panels] of Object.entries(T)) {
+  function addTab(name, panels, before) {
     const tb = document.createElement('button'); tb.type = 'button'; tb.className = 'rt'; tb.textContent = name; tb.setAttribute('role', 'tab');
     tb.onclick = () => showTab(name); tb.ondblclick = () => setRibbonMin(!rb.classList.contains('min'));
-    tabsEl.appendChild(tb);
+    const ref = before && panes[before] ? panes[before][0] : tabsEl.querySelector('.rmin'); tabsEl.insertBefore(tb, ref);
     const pane = document.createElement('div'); pane.style.display = 'contents'; panes[name] = [tb, pane];
     for (const p of panels) {
       const pd = document.createElement('div'); pd.className = 'rp';
@@ -2726,8 +2727,9 @@ body.nomenu #menubar{display:none}
       }
       pane.appendChild(pd);
     }
-    body.appendChild(pane);
+    if (before && panes[before]) body.insertBefore(pane, panes[before][1]); else body.appendChild(pane);
   }
+  for (const [name, panels] of Object.entries(T)) addTab(name, panels);
   document.addEventListener('pointerdown', ev => { if (!ev.target.closest('.rp')) rb.querySelectorAll('.rp.open').forEach(x => x.classList.remove('open')); });
   body.addEventListener('scroll', () => rb.querySelectorAll('.rp.open').forEach(x => x.classList.remove('open')));
   function showTab(name) {
@@ -2745,6 +2747,7 @@ body.nomenu #menubar{display:none}
   if (store.get('vc.nomenu', false)) document.body.classList.add('nomenu');
   if (store.get('vc.oldbars', false)) document.body.classList.add('oldbars');
   rb.classList.toggle('min', !!store.get('vc.rbMin', false));
+  window.CAD_RIBBON = { addTab:(n, p, b) => { addTab(n, p, b); const cur = store.get('vc.rbTab', '홈'); showTab(panes[cur] ? cur : '홈'); }, C, F, showTab };
   showTab(store.get('vc.rbTab', '홈'));
 
   /* 제목줄: 빠른 실행 아이콘 + 가운데 제목 */
