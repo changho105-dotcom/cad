@@ -2143,6 +2143,85 @@ CMDS.PUTFILE = () => ({ start() { endCmd(); $('#bPutFile').click(); } });
 CMD_DESC.PUTFILE = '파일 넣기 (그림·PDF·DWG·DXF)';
 M('파일').splice(1, 0, ['파일 넣기 (그림·PDF·DWG·DXF)…', '끌어다 놓기', () => $('#bPutFile').click()]);
 
+/* ---------- 화면 색 (배경·그림·글자) — 이 브라우저에 저장 ---------- */
+settings.view = Object.assign({ bg:'#ffffff', ink:'#000000', text:'', keepDim:true }, settings.view || {}); // 기본: 흰 바탕·그림 검정·치수 그대로(2026-11-23 요청)
+const VIEW_PRESETS = {
+  paper:{ bg:'#ffffff', ink:'#000000', text:'', keepDim:true, label:'흰 바탕 · 그림 검정 · 치수 그대로' },
+  dark:{ bg:'#0f1215', ink:'', text:'', keepDim:true, label:'어두운 바탕 · 레이어 색' },
+  gray:{ bg:'#2b3036', ink:'', text:'', keepDim:true, label:'회색 바탕' }
+};
+const hexLum = h => { const m = /^#([0-9a-f]{6})$/i.exec(h || ''); if (!m) return 0.5; const v = parseInt(m[1], 16); return (0.299 * (v >> 16) + 0.587 * ((v >> 8) & 255) + 0.114 * (v & 255)) / 255; };
+const bgLight = () => hexLum(settings.view.bg) > 0.55;
+const fitBg = c => { const L = hexLum(c); if (bgLight() && L > 0.75) return '#111111'; if (!bgLight() && L < 0.12) return '#e8e8e8'; return c; }; // 바탕과 비슷해 안 보이는 색만 뒤집음
+const isDimLike = e => isDim(e) || ['dimang', 'dimord', 'leader'].includes(e.type) || e.layer === 'dim';
+function viewColor(e) {
+  const V = settings.view, base = (LAYERS[e.layer] || LAYERS['0']).color;
+  if (isDimLike(e) && V.keepDim) return fitBg(base);
+  if ((e.type === 'text' || e.type === 'mtext') && V.text) return V.text;
+  return V.ink || fitBg(base);
+}
+{
+  const drawEnt0 = drawEnt;
+  drawEnt = (e, color, dash, width) => drawEnt0(e, color || viewColor(e), dash, width); // 선택·미리보기처럼 색을 정해 부르는 경우는 그대로
+  drawGrid = (W, H) => {
+    const light = bgLight(), target = 40 / view.s, p = Math.pow(10, Math.floor(Math.log10(target)));
+    let step = p * 10; for (const m of [1, 2, 5, 10]) if (p * m >= target) { step = p * m; break; }
+    const [x0, y1] = s2w(0, 0), [x1, y0] = s2w(W, H);
+    ctx.setLineDash([]); ctx.lineWidth = 1; ctx.strokeStyle = light ? '#e8ebee' : '#1b2127'; ctx.beginPath();
+    for (let x = Math.ceil(x0 / step) * step; x <= x1; x += step) { const sx = Math.round(w2s(x, 0)[0]) + .5; ctx.moveTo(sx, 0); ctx.lineTo(sx, H); }
+    for (let y = Math.ceil(y0 / step) * step; y <= y1; y += step) { const sy = Math.round(w2s(0, y)[1]) + .5; ctx.moveTo(0, sy); ctx.lineTo(W, sy); }
+    ctx.stroke();
+    const [ax, ay] = w2s(0, 0); ctx.strokeStyle = light ? '#cfd5da' : '#27333e'; ctx.beginPath(); ctx.moveTo(ax, 0); ctx.lineTo(ax, H); ctx.moveTo(0, ay); ctx.lineTo(W, ay); ctx.stroke();
+  };
+  drawCrosshair = (W, H) => {
+    if (!ptrScreen || ptrType !== 'mouse') return;
+    const [x, y] = ptrScreen.map(v => Math.round(v) + .5);
+    ctx.setLineDash([]); ctx.lineWidth = 1; ctx.strokeStyle = bgLight() ? '#1c2228cc' : '#e8edf2cc';
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+    if (!cmd || cmd.selecting) ctx.strokeRect(x - 5, y - 5, 10, 10);
+  };
+}
+function applyView() { cv.style.background = settings.view.bg; store.set('vc.settings', settings); draw(); }
+function setView(v) { Object.assign(settings.view, v); applyView(); }
+window.setView = setView; // 시험용
+function openViewColors() {
+  let dlg = $('#dlgView');
+  if (!dlg) {
+    dlg = document.createElement('dialog'); dlg.id = 'dlgView';
+    dlg.innerHTML = '<h2>화면 색</h2><div class="hint">이 브라우저의 화면에만 적용됩니다. 도면 파일·출력(PDF)·DWG 색은 바뀌지 않습니다.</div>' +
+      '<div id="vwPre" style="display:flex;flex-direction:column;gap:6px;margin-top:10px"></div>' +
+      '<div style="display:grid;grid-template-columns:auto 1fr;gap:8px 12px;align-items:center;margin-top:12px">' +
+      '<label for="vwBg" style="margin:0">배경색</label><input type="color" id="vwBg">' +
+      '<label for="vwInkSel" style="margin:0">그림 색</label><div style="display:flex;gap:6px"><select id="vwInkSel" style="flex:1"><option value="">레이어 색 그대로</option><option value="#000000">검정</option><option value="#ffffff">흰색</option><option value="custom">직접 고르기</option></select><input type="color" id="vwInk"></div>' +
+      '<label for="vwTxtSel" style="margin:0">글자 색</label><div style="display:flex;gap:6px"><select id="vwTxtSel" style="flex:1"><option value="">그림 색과 같게</option><option value="#000000">검정</option><option value="#ffffff">흰색</option><option value="#0050c8">파랑</option><option value="#c80000">빨강</option><option value="custom">직접 고르기</option></select><input type="color" id="vwTxt"></div></div>' +
+      '<label><input type="checkbox" id="vwDim"> 치수선·치수 글자는 원래 색 그대로</label>' +
+      '<div class="btns"><button id="vwClose" class="primary">닫기</button></div>';
+    document.body.appendChild(dlg);
+    for (const [k, p] of Object.entries(VIEW_PRESETS)) {
+      const b = document.createElement('button'); b.type = 'button'; b.style.cssText = 'display:flex;align-items:center;gap:10px;text-align:left';
+      b.innerHTML = `<span style="width:28px;height:18px;border:1px solid #555;border-radius:3px;background:${p.bg};display:inline-flex;align-items:center;justify-content:center;font-size:11px;color:${p.ink || '#e8e8e8'}">가</span><span></span>`;
+      b.lastChild.textContent = p.label; b.onclick = () => { const { label, ...v } = p; setView(v); fill(); }; $('#vwPre').appendChild(b);
+    }
+    const pickSel = (sel, inp, key) => { sel.onchange = () => { if (sel.value === 'custom') { inp.click(); return; } setView({ [key]:sel.value }); fill(); }; inp.oninput = () => { setView({ [key]:inp.value }); sel.value = 'custom'; }; };
+    pickSel($('#vwInkSel'), $('#vwInk'), 'ink'); pickSel($('#vwTxtSel'), $('#vwTxt'), 'text');
+    $('#vwBg').oninput = ev => setView({ bg:ev.target.value });
+    $('#vwDim').onchange = ev => setView({ keepDim:ev.target.checked });
+    $('#vwClose').onclick = () => dlg.close();
+  }
+  const fill = () => {
+    const V = settings.view; $('#vwBg').value = V.bg;
+    const setSel = (sel, inp, v) => { const has = [...sel.options].some(o => o.value === v); sel.value = has ? v : 'custom'; inp.value = /^#[0-9a-f]{6}$/i.test(v) ? v : '#000000'; };
+    setSel($('#vwInkSel'), $('#vwInk'), V.ink); setSel($('#vwTxtSel'), $('#vwTxt'), V.text); $('#vwDim').checked = !!V.keepDim;
+  };
+  fill(); dlg.showModal();
+}
+CMDS.SCREENCOLOR = () => ({ start() { endCmd(); openViewColors(); } });
+CMD_DESC.SCREENCOLOR = '화면 색 (배경·그림·글자)';
+DEFAULT_ALIASES.BG = 'SCREENCOLOR'; if (settings.aliases.BG == null) settings.aliases.BG = 'SCREENCOLOR';
+M('형식').unshift(C('SCREENCOLOR', '화면 색 (배경·그림·글자)…'));
+M('보기').push(C('SCREENCOLOR', '화면 색 (배경·그림·글자)…'));
+cv.style.background = settings.view.bg;
+
 buildToolbars(); buildMenus(); buildHelp();
 ensureUserLayers();
 draw();
