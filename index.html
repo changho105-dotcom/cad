@@ -1241,6 +1241,7 @@ async function send(textArg, retry = 0, opts = {}) {
   }
   busy = true; $('#send').disabled = true;
   const att = attachment; attachment = null; $('#attachName').textContent = '';
+  if (att && att.trace) opts = { ...opts, addOnly:true }; // 그림 따라 그리기: 기존 도면은 지우지 않고 옆에 추가만
   qEl.value = '';
   addMsg('user', (att ? `📎 ${att.name}\n` : '') + (text || '첨부한 도면을 따라 그려줘'));
   const pending = addMsg('ai', '⏳ 그리는 중…');

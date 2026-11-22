@@ -2071,6 +2071,69 @@ Object.assign(CMD_DESC, { DIMSTYLE:'치수 스타일 (글자·화살표·소수 
 - dimord: 좌표 치수. x,y(재는 점), lx,ly(지시선 끝), axis("x"=X좌표 표기, "y"=Y좌표 표기). 원점은 치수 스타일의 좌표 원점(기본 0,0).`;
 }
 
+/* ---------- 파일 넣기: 버튼 · 화면에 끌어다 놓기 · 그림 붙여넣기(Ctrl+V) ----------
+   그림(사진·손그림·캡처) → AI 따라 그리기 / PDF → PDF 가져오기 / DWG·DXF → 도면 열기 */
+const IMG_RE = /^image\/(png|jpeg|webp|gif|bmp)$/;
+const DRAW_ASK = '첨부한 그림을 도면으로 따라 그려줘. 적힌 치수를 그대로 쓰고 치수선도 넣어줘. 적혀 있지 않은 치수는 비율로 추정해서 알려줘.';
+async function imageToAttach(f) { // 큰 사진은 긴 변 2000px로 줄여 JPEG로(투명 부분은 흰 바탕)
+  const url = URL.createObjectURL(f), img = new Image();
+  try { await new Promise((res, rej) => { img.onload = res; img.onerror = () => rej(new Error('그림을 읽지 못했습니다')); img.src = url; }); }
+  finally { setTimeout(() => URL.revokeObjectURL(url), 1000); }
+  const sc = Math.min(1, 2000 / Math.max(img.naturalWidth, img.naturalHeight)), c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(img.naturalWidth * sc)); c.height = Math.max(1, Math.round(img.naturalHeight * sc));
+  const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0, c.width, c.height);
+  return { name:f.name || '붙여넣은 그림', kind:'image', mime:'image/jpeg', data:c.toDataURL('image/jpeg', 0.9).split(',')[1], trace:true, w:c.width, h:c.height };
+}
+const setInputFile = (inp, f) => { const dt = new DataTransfer(); dt.items.add(f); inp.files = dt.files; };
+async function takeFile(f) {
+  const n = (f.name || '').toLowerCase();
+  try {
+    if (/\.(dwg|dxf)$/.test(n)) { openDxfIn(); setInputFile($('#dxfFile'), f); $('#dxfErr').textContent = `${f.name} — 「새 도면으로 열기」 또는 「지금 도면에 추가」를 누르세요`; return; }
+    if (n.endsWith('.pdf') || f.type === 'application/pdf') { openPdfImport(); setInputFile($('#pdfFile'), f); $('#pdfFile').dispatchEvent(new Event('change')); return; }
+    if (IMG_RE.test(f.type) || /\.(png|jpe?g|webp|gif|bmp)$/.test(n)) {
+      attachment = await imageToAttach(f);
+      $('#attachName').textContent = '📎 ' + attachment.name; setAI(true);
+      if (!qEl.value.trim()) qEl.value = DRAW_ASK;
+      qEl.focus(); qEl.setSelectionRange(qEl.value.length, qEl.value.length);
+      addMsg('sys', `그림을 붙였습니다: ${attachment.name} (${attachment.w}×${attachment.h})\n요청 문장을 확인·보충하고 「보내기」를 누르면 AI가 따라 그립니다. 기존 도면은 지우지 않고 옆에 추가합니다.`);
+      status('그림을 붙였습니다 — 「보내기」를 누르세요');
+      return;
+    }
+    status('넣을 수 없는 파일입니다: ' + (f.name || f.type) + ' (그림·PDF·DWG·DXF만)');
+  } catch (err) { addMsg('err', '파일을 넣지 못했습니다: ' + err.message); }
+}
+window.takeFile = takeFile; // 시험용
+(() => {
+  // 도구막대 맨 앞 「파일 넣기」 버튼
+  const inp = document.createElement('input'); inp.type = 'file'; inp.hidden = true; inp.accept = 'image/*,.pdf,.dwg,.dxf';
+  inp.onchange = () => { const f = inp.files[0]; inp.value = ''; if (f) takeFile(f); };
+  const b = document.createElement('button'); b.type = 'button'; b.id = 'bPutFile'; b.className = 'ib txt primary';
+  b.textContent = '📂 파일 넣기'; b.title = '그림·사진·손그림 → AI가 따라 그림 / PDF → 선 그대로 가져오기 / DWG·DXF → 도면 열기 (화면에 끌어다 놓거나 Ctrl+V로 붙여도 됩니다)';
+  b.onclick = () => { b.blur(); inp.click(); };
+  $('#toolbar').prepend(b, inp);
+  // 화면 어디든 끌어다 놓기
+  const ov = document.createElement('div'); ov.id = 'dropOverlay';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:50;display:none;align-items:center;justify-content:center;background:#0b1a2acc;border:3px dashed var(--accent);color:#e6f0fb;font-size:20px;text-align:center;line-height:1.7;pointer-events:none';
+  ov.innerHTML = '<div><b>여기에 놓으세요</b><br><span style="font-size:15px">그림·사진·손그림 → AI가 따라 그림 · PDF → 선 그대로 가져오기 · DWG·DXF → 도면 열기</span></div>';
+  document.body.appendChild(ov);
+  let depth = 0; const hasFiles = ev => [...(ev.dataTransfer && ev.dataTransfer.types || [])].includes('Files');
+  window.addEventListener('dragenter', ev => { if (!hasFiles(ev)) return; ev.preventDefault(); depth++; ov.style.display = 'flex'; });
+  window.addEventListener('dragover', ev => { if (hasFiles(ev)) ev.preventDefault(); });
+  window.addEventListener('dragleave', ev => { if (!hasFiles(ev)) return; if (--depth <= 0) { depth = 0; ov.style.display = 'none'; } });
+  window.addEventListener('drop', ev => { if (!hasFiles(ev)) return; ev.preventDefault(); depth = 0; ov.style.display = 'none'; const f = ev.dataTransfer.files[0]; if (f) takeFile(f); });
+  // 캡처한 그림을 Ctrl+V로 붙여넣기 (그림이 아니면 기존 도면 붙여넣기 그대로)
+  document.addEventListener('paste', ev => {
+    if (document.querySelector('dialog[open]')) return;
+    const it = [...(ev.clipboardData && ev.clipboardData.items || [])].find(x => x.kind === 'file' && IMG_RE.test(x.type));
+    if (!it) return;
+    ev.preventDefault(); if (cmd && cmd.name === 'PASTECLIP') endCmd();
+    const blob = it.getAsFile(); takeFile(new File([blob], '붙여넣은 그림.png', { type:blob.type }));
+  });
+})();
+CMDS.PUTFILE = () => ({ start() { endCmd(); $('#bPutFile').click(); } });
+CMD_DESC.PUTFILE = '파일 넣기 (그림·PDF·DWG·DXF)';
+M('파일').splice(1, 0, ['파일 넣기 (그림·PDF·DWG·DXF)…', '끌어다 놓기', () => $('#bPutFile').click()]);
+
 buildToolbars(); buildMenus(); buildHelp();
 ensureUserLayers();
 draw();
