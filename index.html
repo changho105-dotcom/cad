@@ -849,16 +849,33 @@ function startCmd(name) {
   setPrompt(); draw();
 }
 function endCmd(silent) { cmd = null; snapHit = null; if (!silent) { setPrompt(); draw(); } }
+// 한/영 키가 한글 상태에서 친 단축키를 영문 자판으로 되돌림 (ㅋ→Z, ㅁ→A, 캐ㅐㅡ→ZOOM). 한글이 아니면 null
+const KO_KEYS = { ㅂ:'Q', ㅈ:'W', ㄷ:'E', ㄱ:'R', ㅅ:'T', ㅛ:'Y', ㅕ:'U', ㅑ:'I', ㅐ:'O', ㅔ:'P', ㅁ:'A', ㄴ:'S', ㅇ:'D', ㄹ:'F', ㅎ:'G', ㅗ:'H', ㅓ:'J', ㅏ:'K', ㅣ:'L',
+  ㅋ:'Z', ㅌ:'X', ㅊ:'C', ㅍ:'V', ㅠ:'B', ㅜ:'N', ㅡ:'M', ㅃ:'Q', ㅉ:'W', ㄸ:'E', ㄲ:'R', ㅆ:'T', ㅒ:'O', ㅖ:'P',
+  ㅘ:'HK', ㅙ:'HO', ㅚ:'HL', ㅝ:'NJ', ㅞ:'NP', ㅟ:'NL', ㅢ:'ML', ㄳ:'RT', ㄵ:'SW', ㄶ:'SG', ㄺ:'FR', ㄻ:'FA', ㄼ:'FQ', ㄽ:'FT', ㄾ:'FX', ㄿ:'FV', ㅀ:'FG', ㅄ:'QT' };
+const KO_CHO = 'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ', KO_JUNG = 'ㅏㅐㅑㅒㅓㅔㅕㅖㅗㅘㅙㅚㅛㅜㅝㅞㅟㅠㅡㅢㅣ', KO_JONG = ' ㄱㄲㄳㄴㄵㄶㄷㄹㄺㄻㄼㄽㄾㄿㅀㅁㅂㅄㅅㅆㅇㅈㅊㅋㅌㅍㅎ';
+function koToEng(t) {
+  if (!/[ㄱ-ㆎ가-힣]/.test(t)) return null;
+  let out = '';
+  for (const ch of t) {
+    const c = ch.charCodeAt(0) - 0xAC00;
+    if (c >= 0 && c < 11172) { // 완성형 글자 → 초성·중성·종성으로 나눠서
+      for (const j of [KO_CHO[Math.floor(c / 588)], KO_JUNG[Math.floor(c % 588 / 28)], KO_JONG[c % 28]]) if (j !== ' ') out += KO_KEYS[j] || '';
+    } else out += KO_KEYS[ch] || ch;
+  }
+  return out;
+}
 function submitInput(raw) {
-  const t = raw.trim();
+  const t = raw.trim(), en = koToEng(t);
   if (!cmd) {
     if (!t) { if (lastCmd) startCmd(lastCmd); return; }
-    const name = resolveCmd(t);
+    const name = resolveCmd(t) || (en && resolveCmd(en));
     if (name) startCmd(name); else status(`알 수 없는 명령: ${t}`);
     return;
   }
   if (!t) { if (cmd.def.enter) cmd.def.enter(cmd); else endCmd(); setPrompt(); draw(); return; }
   if (cmd.def.text && cmd.def.text(cmd, t)) { draw(); return; }
+  if (en && cmd.def.text && cmd.def.text(cmd, en)) { draw(); return; } // 한글 상태로 친 옵션 글자(ㅁ→A 등)
   const p = parsePoint(t, cmd);
   if (p && cmd.def.point && !cmd.selecting) { cmd.def.point(cmd, p, p); setPrompt(); draw(); return; }
   status('입력을 이해하지 못했습니다: ' + t);
@@ -927,8 +944,18 @@ cv.addEventListener('wheel', e => { e.preventDefault(); const p = local(e); zoom
 cv.addEventListener('auxclick', e => { if (e.button === 1 && e.detail === 2) zoomExtents(); });
 cv.addEventListener('contextmenu', e => { e.preventDefault(); submitInput(''); });
 
+function submitCmdBox() { const v = cmdEl.value; cmdEl.value = ''; if (cmd && v.trim()) cmdLog(`${promptEl.textContent} ${v.trim()}`); submitInput(v); }
+// 한글 입력 중(글자 조합 중)에 Enter·Space를 누르면 조합이 끝난 뒤에 실행 — 안 그러면 'ㅋ'이 칸에 남거나 두 번 눌러야 함
+let imeSubmit = false, imeDoneAt = 0;
+cmdEl.addEventListener('compositionend', () => {
+  if (!imeSubmit) return;
+  imeSubmit = false;
+  setTimeout(() => { imeDoneAt = performance.now(); submitCmdBox(); }, 0);
+});
 cmdEl.addEventListener('keydown', e => {
-  if (e.key === 'Enter' || (e.key === ' ' && !(cmd && cmd.rawText))) { e.preventDefault(); const v = cmdEl.value; cmdEl.value = ''; if (cmd && v.trim()) cmdLog(`${promptEl.textContent} ${v.trim()}`); submitInput(v); }
+  const go = e.key === 'Enter' || (e.key === ' ' && !(cmd && cmd.rawText));
+  if (e.isComposing || e.keyCode === 229) { if (go || e.code === 'Enter' || e.code === 'NumpadEnter' || (e.code === 'Space' && !(cmd && cmd.rawText))) imeSubmit = true; return; }
+  if (go) { e.preventDefault(); if (performance.now() - imeDoneAt < 150 && !cmdEl.value.trim()) return; submitCmdBox(); } // 조합 끝에 따라오는 같은 Enter는 한 번만
   else if (e.key === 'Escape') { cmdEl.value = ''; cancel(); }
 });
 function cancel() { if (cmd) { endCmd(); status('*취소*'); } else { sel.clear(); setPrompt(); draw(); } }
