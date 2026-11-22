@@ -1011,9 +1011,9 @@ Object.assign(CMDS, {
   OSNAP: () => ({ start() { endCmd(); openOsnap(); } }),
   PURGE: () => ({ start() { endCmd(); const used = new Set(); const walk = list => list.forEach(e => { if (e.type === 'insert' && !used.has(e.name)) { used.add(e.name); walk(((doc.blocks || {})[e.name] || {}).ents || []); } }); walk(doc.ents); const rm = Object.keys(doc.blocks || {}).filter(n => !used.has(n)); rm.forEach(n => delete doc.blocks[n]); save(); status(rm.length ? `쓰지 않는 블록 ${rm.length}개 정리: ${rm.join(', ')}` : '정리할 블록이 없습니다'); } }),
   ZOOM: () => ({
-    start(c) { c.prompt = '줌 — 전체(E) / 창(W) / 이전(P) <E>:'; },
+    start(c) { c.prompt = '줌 — 전체(E·A·Enter) / 창(W) / 이전(P) <전체>:'; },
     enter() { pushView(); endCmd(); zoomExtents(); },
-    text(c, t) { const u = t.toUpperCase(); if (u === 'E') { pushView(); endCmd(); zoomExtents(); return true; } if (u === 'P') { endCmd(); popView(); return true; } if (u === 'W') { c.win = true; c.prompt = '창의 첫 구석:'; return true; } },
+    text(c, t) { const u = t.toUpperCase(); if (['E', 'A', 'Z', 'ALL', '전체'].includes(u)) { pushView(); endCmd(); zoomExtents(); return true; } if (u === 'P') { endCmd(); popView(); return true; } if (u === 'W') { c.win = true; c.prompt = '창의 첫 구석:'; return true; } },
     point(c, p) {
       if (!c.win) { c.win = true; }
       if (!c.w1) { c.w1 = p; c.prompt = '반대쪽 구석:'; return; }
@@ -2222,6 +2222,16 @@ M('형식').unshift(C('SCREENCOLOR', '화면 색 (배경·그림·글자)…'));
 M('보기').push(C('SCREENCOLOR', '화면 색 (배경·그림·글자)…'));
 cv.style.background = settings.view.bg;
 
+{ // 전체보기를 했는데 보일 것이 없으면 이유를 알려줌(빈 화면만 보여 당황하지 않게)
+  const zx0 = zoomExtents;
+  zoomExtents = () => {
+    zx0();
+    const all = doc.ents.filter(e => !layerOff(e)), here = all.filter(e => !e.floor || e.floor === doc.cur);
+    if (!doc.ents.length) status('이 브라우저에 저장된 도면이 비어 있습니다 — 다른 PC에서 그렸다면 「서버 도면」에서 불러오세요');
+    else if (!all.length) status('모든 레이어가 꺼져 있습니다 — 형식 → 레이어에서 켜세요');
+    else if (!here.length) status(`이 층에는 그린 것이 없습니다 — 위쪽 층 탭에서 다른 층을 고르세요`);
+  };
+}
 buildToolbars(); buildMenus(); buildHelp();
 ensureUserLayers();
 draw();
