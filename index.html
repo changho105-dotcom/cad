@@ -620,7 +620,8 @@ function draw() {
   ctx.clearRect(0, 0, W, H);
   if (doc.pdfLayers) ensurePdfLayers(); // 서버에서 불러온 도면의 PDF 레이어 색 복원
   if (gridOn) drawGrid(W, H);
-  for (const e of doc.ents) { if (typeof layerOff === 'function' && layerOff(e)) continue; ctx.globalAlpha = (e.floor && e.floor !== doc.cur) ? 0.2 : 1; drawEnt(e); }
+  const under = e => e.type === 'hatch' || e.type === 'image'; // 해치·밑그림은 선·글자 아래에(오토캐드의 '해치를 뒤로')
+  for (const e of [...doc.ents.filter(under), ...doc.ents.filter(e => !under(e))]) { if (typeof layerOff === 'function' && layerOff(e)) continue; ctx.globalAlpha = (e.floor && e.floor !== doc.cur) ? 0.2 : 1; drawEnt(e); }
   ctx.globalAlpha = 1;
   for (const id of sel) { const e = findEnt(id); if (e) drawEnt(e, '#4aa3ff', [6, 4], 2); }
   if (selBox) { // 왼→오 = 완전히 포함(파랑 실선), 오→왼 = 걸침(초록 점선)
@@ -1218,6 +1219,7 @@ function applyAI(inp, opts = {}) {
   const refs = {}; // AI가 add에 붙인 ref 이름 → 새 id (같은 응답의 ops에서 씀)
   for (const a of inp.add || []) { const e = sanitize(a); if (e) { addEnt(e); added++; if (a.ref) refs[String(a.ref)] = e.id; } }
   const opsR = (inp.ops || []).length && typeof runOps === 'function' ? runOps(inp.ops, refs, opts) : null;
+  if (inp.screen && typeof applyScreenFromAI === 'function') applyScreenFromAI(inp.screen); // 화면 색 요청
   if (oldBox && added) { // 새로 그린 것이 기존 도면과 겹치면 기존 도면 오른쪽 빈 곳으로 옮김
     const fresh = doc.ents.slice(firstNew), nb = bounds(fresh);
     if (nb && nb[0] < oldBox[2] && nb[2] > oldBox[0] && nb[1] < oldBox[3] && nb[3] > oldBox[1]) {

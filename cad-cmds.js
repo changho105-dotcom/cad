@@ -2215,6 +2215,22 @@ function openViewColors() {
   };
   fill(); dlg.showModal();
 }
+window.applyScreenFromAI = sc => { // AI가 보낸 화면 색(배경·그림·글자) — 이 브라우저 화면에만
+  const hex = v => typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v) ? v.toLowerCase() : null, v = {};
+  if (hex(sc.bg)) v.bg = hex(sc.bg);
+  if (sc.ink === '' || hex(sc.ink)) v.ink = sc.ink === '' ? '' : hex(sc.ink);
+  if (sc.text === '' || hex(sc.text)) v.text = sc.text === '' ? '' : hex(sc.text);
+  if (typeof sc.keepDim === 'boolean') v.keepDim = sc.keepDim;
+  if (v.bg && v.ink == null && hexLum(v.bg) < 0.45 && hexLum(settings.view.ink || '#e8e8e8') < 0.3) v.ink = ''; // 어두운 바탕인데 그림이 검정이면 안 보이므로 레이어 색으로
+  if (v.bg && v.ink == null && hexLum(v.bg) > 0.55 && settings.view.ink && hexLum(settings.view.ink) > 0.7) v.ink = '#000000';
+  if (Object.keys(v).length) setView(v);
+};
+{
+  const AP = TOOL.input_schema.properties, col = { type:'string', description:'#rrggbb, 빈 문자열이면 레이어 색 그대로' };
+  AP.screen = { type:'object', description:'화면 색 바꾸기(이 브라우저 화면만, 도면 데이터는 그대로). 배경색·바탕색·바닥색·화면 색·선 색·글자 색을 바꿔 달라는 요청은 이것만 쓰고 해치나 도형을 만들지 않는다.', properties:{ bg:col, ink:col, text:col, keepDim:{ type:'boolean', description:'치수는 원래 색 유지' } } };
+  window.SYS_EXTRA += `
+[화면 색] "배경색(바탕색·바닥색·화면 색)을 검정/흰색으로", "선을 흰색으로", "글자를 빨갛게"처럼 화면 표시 색을 바꾸라는 요청은 screen{bg,ink,text,keepDim}만 보냅니다(#rrggbb). 이때 해치·사각형 등 도형을 추가하지 않습니다. 실제 바닥 마감·재료를 칠해 달라고 분명히 말할 때만 HATCH를 씁니다.`;
+}
 CMDS.SCREENCOLOR = () => ({ start() { endCmd(); openViewColors(); } });
 CMD_DESC.SCREENCOLOR = '화면 색 (배경·그림·글자)';
 DEFAULT_ALIASES.BG = 'SCREENCOLOR'; if (settings.aliases.BG == null) settings.aliases.BG = 'SCREENCOLOR';
