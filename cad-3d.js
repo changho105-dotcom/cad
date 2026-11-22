@@ -460,7 +460,12 @@ async function set3D(on, view, style) {
   if (view && VIEWS[view]) { curView = view; cam3.az = VIEWS[view][1]; cam3.el = VIEWS[view][2]; }
   updLabels();
   if (first || view) { rebuild(); zoomExt3(); } else req();
-  if (first) status('3D 화면 — 왼쪽 끌기: 돌려보기 · 가운데/오른쪽 끌기: 이동 · 휠: 확대 · 오른쪽 클릭: Enter');
+  if (first) {
+    status('3D 화면 — 왼쪽 끌기: 돌려보기 · 가운데/오른쪽 끌기: 이동 · 휠: 확대 · 오른쪽 클릭: Enter');
+    // 치수·글자는 3D에 안 그려지므로, 있으면 사라진 것으로 오해하지 않게 한 번 알림
+    const n = doc.ents.filter(e => SKIP2D.includes(e.type) && !layerOff(e)).length;
+    if (n) addMsg('sys', `3D 화면에서는 치수·글자·해치 ${n}개가 보이지 않습니다(지워진 것 아님). 평면으로 돌아가면 다시 보입니다 — 「평면 도면」 또는 PLAN.`);
+  }
 }
 const ro0 = window.runOps;
 window.runOps = (ops, refs, opts = {}) => {

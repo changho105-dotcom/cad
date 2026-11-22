@@ -613,6 +613,7 @@ window.layerOff = e => !!layerProp(e.layer).off;
 window.layerBlocked = e => { const p = layerProp(e.layer); return !!(p.off || p.lock); };
 const LAYER_KO = { dim:'치수', struct:'구조벽(10)', wall:'칸막이벽(13)', col:'기둥(11)', open:'창호(20)', area:'면적선(04)', room:'실', slab:'슬라브(30)', equip:'설비(40)', sheet:'도곽(70)', elev:'입면(60)', sec:'단면', hatch:'해치(50)', xref:'외부 참조' };
 const layerLabel = k => { const o = [...$('#layerSel').options].find(x => x.value === k); return o ? o.textContent : LAYER_KO[k] || k; };
+window.layerLabel = layerLabel; // index.html의 screenState(AI에게 꺼진 레이어 이름 전달)에서 씀
 function ensureLayer(key, name, color, dash) {
   if (!LAYERS[key]) LAYERS[key] = { color, dash:dash || [] };
   // DXF R12는 한글 레이어 이름을 못 담아서 영문이 아니면 L번호로 내보냄
@@ -1361,6 +1362,13 @@ window.runOps = (ops, refs, opts = {}) => {
         case 'DIVIDE': G.divide(one(op.id), Math.max(2, Math.round(+op.n || 2))); break;
         case 'MEASURE': { if (!(+op.d > 0)) throw new Error('간격 d가 필요합니다'); G.divide(one(op.id), 0, +op.d); break; }
         case 'MATCHPROP': G.matchProp(one(op.src), E(op.ids)); break;
+        case 'LAYON': { // 꺼진 레이어 다시 켜기 (layers 생략 = 전부, LAYISO도 풀기)
+          const want = Array.isArray(op.layers) && op.layers.length ? op.layers.map(String) : null;
+          for (const [k, v] of Object.entries(doc.layerProps || {})) if (v && (!want || want.includes(k))) delete v.off;
+          if (!want) delete doc.layIso;
+          break;
+        }
+        case 'ZOOMEXT': zoomExtents(); break;
         default: throw new Error('모르는 명령');
       }
       R.done++;
@@ -1368,7 +1376,7 @@ window.runOps = (ops, refs, opts = {}) => {
   }
   return R;
 };
-const OPS = ['ERASE', 'MOVE', 'COPY', 'ROTATE', 'MIRROR', 'SCALE', 'OFFSET', 'TRIM', 'EXTEND', 'FILLET', 'CHAMFER', 'BREAK', 'JOIN', 'EXPLODE', 'ARRAYRECT', 'ARRAYPOLAR', 'STRETCH', 'LENGTHEN', 'HATCH', 'BLOCK', 'INSERT', 'DIVIDE', 'MEASURE', 'MATCHPROP'];
+const OPS = ['ERASE', 'MOVE', 'COPY', 'ROTATE', 'MIRROR', 'SCALE', 'OFFSET', 'TRIM', 'EXTEND', 'FILLET', 'CHAMFER', 'BREAK', 'JOIN', 'EXPLODE', 'ARRAYRECT', 'ARRAYPOLAR', 'STRETCH', 'LENGTHEN', 'HATCH', 'BLOCK', 'INSERT', 'DIVIDE', 'MEASURE', 'MATCHPROP', 'LAYON', 'ZOOMEXT'];
 (() => { // AI 도구 정의에 새 도형·명령 추가
   const AP = TOOL.input_schema.properties, IT = AP.add.items.properties, num = { type:'number' };
   EXT.forEach(t => { if (!IT.type.enum.includes(t)) IT.type.enum.push(t); });
@@ -1376,7 +1384,7 @@ const OPS = ['ERASE', 'MOVE', 'COPY', 'ROTATE', 'MIRROR', 'SCALE', 'OFFSET', 'TR
   IT.holes = { type:'array', items:{ type:'array', items:{ type:'array', items:num } } };
   IT.pat = { type:'string', enum:['SOLID', 'ANSI31', 'ANSI37', 'NET'] };
   IT.ref = { type:'string', description:'이 요소를 같은 응답의 ops에서 가리킬 이름' };
-  AP.ops = { type:'array', description:'실제 캐드 명령을 순서대로 실행(add 다음에 실행)', items:{ type:'object', properties:{ op:{ type:'string', enum:OPS }, id:{ type:'string' }, ids:{ type:'array', items:{ type:'string' } } }, required:['op'] } };
+  AP.ops = { type:'array', description:'실제 캐드 명령을 순서대로 실행(add 다음에 실행)', items:{ type:'object', properties:{ op:{ type:'string', enum:OPS }, id:{ type:'string' }, ids:{ type:'array', items:{ type:'string' } }, layers:{ type:'array', items:{ type:'string' } } }, required:['op'] } };
 })();
 window.SYS_EXTRA = `
 
@@ -1400,7 +1408,16 @@ add 항목에 "ref":"이름"을 붙이면 같은 응답의 ops에서 그 이름�
 - BREAK{id,p1,p2?} JOIN{ids} EXPLODE{ids} ARRAYRECT{ids,rows,cols,dx,dy} ARRAYPOLAR{ids,center,count,angle(기본 360),rotate}
 - STRETCH{window:[x0,y0,x1,y1],dx,dy} LENGTHEN{id,total 또는 delta,end:"start"|"end"} HATCH{id 또는 pts,pattern,scale,ang}
 - BLOCK{name,ids,base,ref?} INSERT{name,x,y,sx,rot,ref?} DIVIDE{id,n} MEASURE{id,d} MATCHPROP{src,ids}
-같은 모양이 반복되거나 대칭인 도면(볼트 구멍, 같은 창 여러 개, 기둥 열, 좌우 대칭 평면 등)은 하나만 add로 그리고 ARRAYRECT·ARRAYPOLAR·MIRROR·COPY로 만드는 것을 우선합니다. 모서리 라운드·모따기는 FILLET·CHAMFER, 교차하는 선의 정리는 TRIM·EXTEND를 씁니다.`;
+같은 모양이 반복되거나 대칭인 도면(볼트 구멍, 같은 창 여러 개, 기둥 열, 좌우 대칭 평면 등)은 하나만 add로 그리고 ARRAYRECT·ARRAYPOLAR·MIRROR·COPY로 만드는 것을 우선합니다. 모서리 라운드·모따기는 FILLET·CHAMFER, 교차하는 선의 정리는 TRIM·EXTEND를 씁니다.
+- LAYON{layers?} 꺼진 레이어 켜기(layers 생략 = 전부) / ZOOMEXT 도면 전체가 화면에 보이게
+
+[화면 상태 — 보이는 것과 데이터는 다를 수 있음]
+현재 도면 JSON의 "화면"에 꺼진 레이어(그 레이어 요소는 화면에 안 그려짐)와 보기 방식(3D 화면에서는 치수·글자·지시선·해치가 안 그려짐)이 들어 있습니다.
+사용자가 "안 보인다", "없어졌다", "사라졌다"고 하면 ents에 있다는 이유만으로 "있습니다"라고 답하지 말고 먼저 "화면"을 확인합니다.
+- 그 요소의 레이어가 꺼져 있으면 → ops LAYON으로 켜고 "○○ 레이어가 꺼져 있어서 켰습니다"라고 알립니다.
+- 3D 화면이면 → ops PLAN으로 평면으로 돌리고 "3D 화면에서는 치수가 안 보여서 평면으로 돌렸습니다"라고 알립니다.
+- 둘 다 아니고 ents에 있으면 → ZOOMEXT로 전체를 보여주고 어디에 있는지(좌표) 알립니다.
+- ents에도 없으면 → 지워졌다고 분명히 말하고(실행취소 Ctrl+Z 안내), 다시 그려 달라면 그때 그립니다.`;
 
 /* ---------- 메뉴·도구막대·단축키 ---------- */
 const NEW_ALIASES = { XL:'XLINE', POL:'POLYGON', EL:'ELLIPSE', SPL:'SPLINE', PO:'POINT', DO:'DONUT', H:'HATCH', BH:'HATCH', MT:'MTEXT', B:'BLOCK', I:'INSERT', AR:'ARRAY',

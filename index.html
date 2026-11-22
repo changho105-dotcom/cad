@@ -1233,6 +1233,19 @@ function applyAI(inp, opts = {}) {
 }
 const round3 = (k, v) => typeof v === 'number' ? Math.round(v * 1000) / 1000 : v;
 
+// AI에게 알려줄 "지금 화면에 실제로 보이는 상태" — 데이터에 있어도 꺼진 레이어·3D 화면에서는 안 보이는 것이 있음
+function screenState() {
+  const props = doc.layerProps || {}, cnt = k => doc.ents.filter(e => e.layer === k).length;
+  const lbl = k => typeof layerLabel === 'function' ? layerLabel(k) : k;
+  const off = Object.keys(props).filter(k => props[k] && props[k].off).map(k => ({ 레이어:k, 이름:lbl(k), 안보이는요소:cnt(k) }));
+  const is3D = !!(window.CAD3D && window.CAD3D.on);
+  return {
+    보기: is3D ? '3D (치수·글자·지시선·해치는 안 그려짐)' : '2D 평면',
+    꺼진레이어: off,
+    잠긴레이어: Object.keys(props).filter(k => props[k] && props[k].lock),
+    현재층: doc.cur, 다른층요소: '흐리게 보임'
+  };
+}
 async function send(textArg, retry = 0, opts = {}) {
   const text = (textArg ?? qEl.value).trim();
   let followUp = null;
@@ -1255,7 +1268,7 @@ async function send(textArg, retry = 0, opts = {}) {
     dimTxt:doc.dimTxt, levels:doc.levels, cur:doc.cur,
     site: doc.site ? { addr:doc.site.addr, area:doc.site.area ?? doc.site.areaCalc, uname:doc.site.uname, 건폐율한도:doc.site.coverage, 용적률한도:doc.site.floor, 접한도로:doc.site.narrowestRoad, 후퇴선:doc.site.setbacks } : null,
     현재법규계산: doc.site ? { 건축면적:+lawNow.cover.toFixed(2), 연면적:+lawNow.far.toFixed(2), 건폐율:lawNow.coverPct == null ? null : +lawNow.coverPct.toFixed(2), 용적률:lawNow.farPct == null ? null : +lawNow.farPct.toFixed(2) } : null,
-    blocks:Object.keys(doc.blocks || {}), ents:doc.ents }, round3); // blocks: INSERT에 쓸 수 있는 블록 이름
+    blocks:Object.keys(doc.blocks || {}), 화면:screenState(), ents:doc.ents }, round3); // blocks: INSERT에 쓸 수 있는 블록 이름
   const content = [];
   if (att) content.push(att.kind === 'pdf'
     ? { type:'document', source:{ type:'base64', media_type:'application/pdf', data:att.data } }
